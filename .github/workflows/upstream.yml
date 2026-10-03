@@ -1,0 +1,29 @@
+# Check the PR series against the current upstream master, not only the pinned tag:
+# the patches must still apply and the full Vanetza test suite must pass.
+name: upstream master
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+jobs:
+  upstream-master:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: move Vanetza submodule to upstream master
+        run: |
+          git -C external/vanetza fetch --quiet origin master
+          git -C external/vanetza checkout --quiet FETCH_HEAD
+          git -C external/vanetza log -1 --format='upstream master %h %ci %s'
+      - name: apply PR series
+        run: |
+          git config --global user.name ci
+          git config --global user.email ci@localhost
+          sh scripts/export-pr.sh
+      - run: docker build --build-arg UBUNTU_VERSION=noble --tag vanetza/docker-ci:noble ${{github.workspace}}/work/vanetza/tools/docker
+      - run: >
+          docker run --rm
+          -v${{github.workspace}}/work/vanetza:/home/build-user/workspace:ro
+          vanetza/docker-ci:noble

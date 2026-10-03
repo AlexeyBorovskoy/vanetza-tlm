@@ -1,0 +1,32 @@
+diff --git a/docs/tools/socktap.md b/docs/tools/socktap.md
+index b9fc1f9..43027f1 100644
+--- a/docs/tools/socktap.md
++++ b/docs/tools/socktap.md
+@@ -103,11 +103,26 @@ Earlier, multiple variants of *socktap* existed as separate executables.
+ Nowadays, *socktap* is the unified executable which can be configured in many ways.
+ These configuration options substitute the deprecated executables.
+ 
+-You can choose from three simple example V2X applications to run with *socktap* via the `--applications` argument:
++You can choose from seven simple example V2X applications to run with *socktap* via the `--applications` argument:
+ 
+ - *ca* sends Cooperative Awareness Messages (CAM)
+ - *hello* sends simple BTP-B message with the binary payload `0xc0ffee`
+ - *benchmark* counts the number of any received messages and prints the current message rate once per second
++- *tlm* sends Signal Phase and Timing Extended Messages (SPATEM) of an example intersection
++- *rlt* sends MAP Extended Messages (MAPEM) describing the lanes of this intersection at the station's position
++- *tlc-request* sends Signal Request Extended Messages (SREM) of a tram asking for priority and prints the answers
++- *tlc-status* answers SREM for the example intersection by Signal Request Status Extended Messages (SSEM)
++
++The example intersection joins a main road with tram tracks and a side road: nine signal groups for vehicles, pedestrians and trams, two stages and five coordinated fixed-time plans selected by a weekly schedule (see `vanetza/facilities/fixed_time_plan.hpp`).
++Protected or permissive movement states are derived from conflicting paths of signal groups served in the same stage.
++The example controller has no priority logic, so *tlc-status* answers valid requests with status *processing*.
++For example, run a road-side and a vehicle station on one host:
++
++    :::shell
++    socktap -l udp -a tlm rlt tlc-status --positioning static --latitude 49.0 --longitude 11.4 --intersection-id 7
++    socktap -l udp -a tlm rlt tlc-request --spatem-interval 0 --mapem-interval 0 --intersection-id 7 --mac-address 02:00:00:00:00:02 --print-rx
++
++See [Generating SPATEM and MAPEM](../recipes/spatem-mapem.md) for the underlying helper functions.
+ 
+ 
+ ## Hybrid-PQC Certificate Validation

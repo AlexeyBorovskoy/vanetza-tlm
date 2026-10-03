@@ -1,0 +1,3 @@
+[submodule "external/vanetza"]
+	path = external/vanetza
+	url = https://github.com/riebl/vanetza.git

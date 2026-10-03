@@ -1,0 +1,218 @@
+# Same container builds as Vanetza's CI, run on the overlay tree (scripts/overlay.sh).
+name: unit tests
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+jobs:
+  # Vanetza docker-ci.yml: full build and ctest
+  docker-unit-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        ubuntu-version: [jammy, noble]
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+      - run: sh scripts/overlay.sh
+      - run: >
+          docker build
+          --build-arg UBUNTU_VERSION=${{matrix.ubuntu-version}}
+          --tag vanetza/docker-ci:${{matrix.ubuntu-version}}
+          ${{github.workspace}}/work/vanetza/tools/docker
+      - run: >
+          docker run --rm
+          -v${{github.workspace}}/work/vanetza:/home/build-user/workspace:ro
+          vanetza/docker-ci:${{matrix.ubuntu-version}}
+
+  # Vanetza cxx14-strict.yml: library must stay C++14 with GCC and Clang
+  cxx14:
+    name: C++14 (${{matrix.compiler.cc}})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler:
+          - {cc: gcc, cxx: g++}
+          - {cc: clang, cxx: clang++}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+      - run: sh scripts/overlay.sh
+      - run: |
+          image=$(docker build -q --target strict-cxx14 ${{github.workspace}}/work/vanetza/tools/docker)
+          docker run --rm \
+            -e CC=${{matrix.compiler.cc}} \
+            -e CXX=${{matrix.compiler.cxx}} \
+            -v${{github.workspace}}/work/vanetza:/home/build-user/workspace:ro \
+            "$image"
+
+  # project addition (not part of upstream PR): ASan + UBSan on our tests only
+  sanitizers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+      - run: sh scripts/overlay.sh
+      - run: docker build --build-arg UBUNTU_VERSION=noble --tag vanetza/docker-ci:noble ${{github.workspace}}/work/vanetza/tools/docker
+      - run: |
+          docker run --rm --entrypoint /bin/bash \
+            -v${{github.workspace}}/work/vanetza:/home/build-user/workspace:ro \
+            vanetza/docker-ci:noble -c '
+            set -e
+            flags="-fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize-recover=undefined"
+            cmake -G Ninja -S workspace -B build \
+              -DCMAKE_BUILD_TYPE=Debug \
+              -DCMAKE_C_FLAGS="$flags" -DCMAKE_CXX_FLAGS="$flags" \
+              -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined" \
+              -DBUILD_TESTS=ON -DBUILD_SOCKTAP=ON -DGTest_BUILD_DIRECTORY_DOWNLOAD=ON
+            cmake --build build --target GTest_SpatemMapemAsn1 GTest_SpatFunctions GTest_MapFunctions GTest_FixedTimePlan GTest_PriorityFunctions GTest_PriorityRequestTable
+            ctest --test-dir build -R "SpatemMapemAsn1|SpatFunctions|MapFunctions|FixedTimePlan|PriorityFunctions|PriorityRequestTable" --output-on-failure'
+
+  # project addition: two socktap stations exchange SPATEM/MAPEM over UDP multicast,
+  # the traffic is captured and decoded independently by Wireshark (tshark)
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+      - run: sh scripts/overlay.sh
+      - run: sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends tshark tcpdump
+      - run: docker build --build-arg UBUNTU_VERSION=noble --tag vanetza/docker-ci:noble ${{github.workspace}}/work/vanetza/tools/docker
+      - run: |
+          sudo tcpdump -i any -U -w capture.pcap udp port 8947 &
+          sleep 2
+          docker run --rm --network host --entrypoint /bin/bash \
+            -v${{github.workspace}}/work/vanetza:/home/build-user/workspace:ro \
+            vanetza/docker-ci:noble -c '
+            set -e
+            cmake -G Ninja -S workspace -B build -DBUILD_SOCKTAP=ON -DBUILD_TESTS=OFF
+            cmake --build build --target socktap
+            socktap=$(find build -name socktap -type f -perm -u+x | head -n1)
+            common="-l udp --positioning static"
+            # road-side station: SPATEM, MAPEM and answers to priority requests
+            $socktap $common -a tlm rlt tlc-status --mac-address 02:00:00:00:00:01 --station-id 10 > tx.log 2>&1 &
+            tx=$!
+            # tram: receives SPATEM/MAPEM and asks for priority
+            $socktap $common -a tlm rlt tlc-request --spatem-interval 0 --mapem-interval 0 --mac-address 02:00:00:00:00:02 --station-id 20 --print-rx > rx.log 2>&1 &
+            rx=$!
+            sleep 8
+            kill $tx $rx || true
+            echo "--- rx.log (head)"; head -n 60 rx.log
+            grep -c "TLM application received a packet with decodable content" rx.log
+            grep -c "RLT application received a packet with decodable content" rx.log
+            grep -c "TLC status application received a packet with decodable content" tx.log
+            grep -c "TLC request application received a packet with decodable content" rx.log
+            grep -m 1 "Priority request 1 at intersection 1 has status 2" rx.log
+            if grep -q "broken content" rx.log tx.log; then echo "broken message received"; exit 1; fi
+            if grep -q "ignores" rx.log tx.log; then echo "message rejected"; grep "ignores" rx.log tx.log; exit 1; fi
+            if grep -q "^Exit" tx.log rx.log; then echo "socktap exited"; cat tx.log rx.log; exit 1; fi'
+          sleep 1
+          sudo pkill tcpdump || true
+          sleep 1
+      - name: decode capture with Wireshark
+        run: |
+          tshark -v | head -n 1
+          tshark -r capture.pcap -d udp.port==8947,eth -V > decoded.txt
+          echo "packets: $(tshark -r capture.pcap | wc -l)"
+          grep -c -i "spatem" decoded.txt
+          grep -c -i "mapem" decoded.txt
+          grep -c -i "srem" decoded.txt
+          grep -c -i "ssem" decoded.txt
+          grep -m 5 -i "eventState" decoded.txt
+          grep -m 5 -i "signalGroup" decoded.txt
+          if grep -q -i "malformed" decoded.txt; then grep -i -m 10 -B 5 "malformed" decoded.txt; exit 1; fi
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-capture
+          path: |
+            capture.pcap
+            decoded.txt
+
+  # project addition: libFuzzer run on the SPATEM/MAPEM/SREM/SSEM decoders
+  fuzz:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+      - run: sh scripts/overlay.sh
+      - run: docker build --target debian --tag vanetza/docker-ci:debian ${{github.workspace}}/work/vanetza/tools/docker
+      - run: |
+          docker run --rm --user root --entrypoint /bin/bash \
+            -v${{github.workspace}}/work/vanetza:/home/build-user/workspace:ro \
+            vanetza/docker-ci:debian -c '
+            set -e
+            # sanitizer and libFuzzer runtimes are not part of the Vanetza CI image
+            apt-get update -qq && apt-get install -y -qq --no-install-recommends libclang-rt-dev > /dev/null
+            cd /home/build-user
+            flags="-fsanitize=address,undefined,fuzzer-no-link -fno-omit-frame-pointer -fno-sanitize-recover=undefined"
+            cmake -G Ninja -S workspace -B build -DCMAKE_BUILD_TYPE=Debug \
+              -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
+              -DCMAKE_C_FLAGS="$flags" -DCMAKE_CXX_FLAGS="$flags" \
+              -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined" \
+              -DBUILD_FUZZ=ON -DFUZZ_WITH_LIBFUZZER=ON
+            cmake --build build --target fuzzing-asn1-libfuzzer fuzzing-asn1-run
+            harness=$(find build -name fuzzing-asn1-libfuzzer -type f | head -n1)
+            # every seed must be a valid message of its type and survive the round trip
+            run=$(find build -name fuzzing-asn1-run -type f | head -n1)
+            for type in spatem mapem srem ssem; do
+              $run workspace/tools/fuzz-harness/input/$type.dat $type
+            done
+            mkdir -p corpus
+            cp workspace/tools/fuzz-harness/input/*.dat corpus/
+            ASAN_OPTIONS=detect_leaks=1 $harness -max_total_time=120 -print_final_stats=1 corpus'
+
+  # project addition: every PR of the series builds and passes the tests on its own
+  pr-steps:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+      - run: |
+          git config --global user.name ci
+          git config --global user.email ci@localhost
+          sh scripts/export-pr.sh
+      # export-pr.sh has left the overlay in work/vanetza
+      - run: docker build --build-arg UBUNTU_VERSION=noble --tag vanetza/docker-ci:noble ${{github.workspace}}/work/vanetza/tools/docker
+      - run: |
+          repo=work/pr-repo
+          base=$(git -C external/vanetza rev-parse HEAD)
+          mkdir -p work/step-build
+          for commit in $(git -C $repo rev-list --reverse $base..HEAD); do
+            # checkout touches changed files only, so the build stays incremental
+            git -C $repo checkout --quiet $commit
+            echo "::group::$(git -C $repo log -1 --format='%h %s')"
+            docker run --rm --user "$(id -u):$(id -g)" --entrypoint /bin/bash \
+              -v${{github.workspace}}/$repo:/source:ro \
+              -v${{github.workspace}}/work/step-build:/build \
+              vanetza/docker-ci:noble -c '
+              set -e
+              cmake -G Ninja -S /source -B /build -DBUILD_TESTS=ON -DBUILD_SOCKTAP=ON -DBUILD_FUZZ=ON \
+                -DGTest_BUILD_DIRECTORY_DOWNLOAD=ON
+              cmake --build /build
+              ctest --test-dir /build -R "SpatemMapemAsn1|SpatFunctions|MapFunctions|FixedTimePlan|PriorityFunctions|PriorityRequestTable" --output-on-failure'
+            echo "::endgroup::"
+          done
+
+  # project addition: the upstream PR series must reproduce the overlay exactly
+  pr-series:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: no carriage returns in sources
+        run: |
+          if grep -rlP --exclude='*.dat' '\r' vanetza tools docs scripts patches; then echo "CR characters found"; exit 1; fi
+      - run: |
+          git config --global user.name ci
+          git config --global user.email ci@localhost
+          sh scripts/export-pr.sh

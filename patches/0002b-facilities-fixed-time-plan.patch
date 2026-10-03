@@ -1,0 +1,21 @@
+diff --git a/vanetza/facilities/CMakeLists.txt b/vanetza/facilities/CMakeLists.txt
+--- a/vanetza/facilities/CMakeLists.txt
++++ b/vanetza/facilities/CMakeLists.txt
+@@ -1,5 +1,6 @@
+ set(CXX_SOURCES
+     cam_functions.cpp
++    fixed_time_plan.cpp
+     map_functions.cpp
+     path_history.cpp
+     path_point.cpp
+diff --git a/vanetza/facilities/tests/CMakeLists.txt b/vanetza/facilities/tests/CMakeLists.txt
+--- a/vanetza/facilities/tests/CMakeLists.txt
++++ b/vanetza/facilities/tests/CMakeLists.txt
+@@ -2,6 +2,7 @@ include(UseGTest)
+ configure_gtest_directory(LINK_LIBRARIES facilities)
+ 
+ add_gtest(CamFunctions cam_functions.cpp LINK_LIBRARIES asn1_its_r2)
++add_gtest(FixedTimePlan fixed_time_plan.cpp)
+ add_gtest(MapFunctions map_functions.cpp)
+ add_gtest(PathHistory path_history.cpp)
+ add_gtest(PathPoint path_point.cpp)
