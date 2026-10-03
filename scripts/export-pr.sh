@@ -16,8 +16,8 @@ rm -rf "$repo" "$out"
 git -c core.autocrlf=false clone --quiet --no-checkout "$src" "$repo"
 git -C "$repo" config core.autocrlf false
 git -C "$repo" checkout --quiet -b tlm "$base"
-git -C "$repo" config user.name "$(git -C "$root" config user.name)"
-git -C "$repo" config user.email "$(git -C "$root" config user.email)"
+git -C "$repo" config user.name "${PR_AUTHOR_NAME:-$(git -C "$root" config user.name)}"
+git -C "$repo" config user.email "${PR_AUTHOR_EMAIL:-$(git -C "$root" config user.email)}"
 
 # pr <message> <patch>... -- <file>...
 pr() {
@@ -39,8 +39,8 @@ pr() {
 pr "asn1: add SPATEM and MAPEM round-trip and constraint tests
 
 Encode, decode, compare and validate SPATEM and MAPEM built with the
-existing asn1c wrappers (ETSI TS 103 301, SAE J2735 DSRC module) and
-check that PER size constraints are enforced on encoding." \
+existing asn1c wrappers (ETSI TS 103 301 with the ISO TS 19091 DSRC
+module) and check that PER size constraints are enforced on encoding." \
     0001-asn1-register-spatem-mapem-tests.patch -- \
     vanetza/asn1/tests/spatem_mapem.cpp
 

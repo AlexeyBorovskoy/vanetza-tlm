@@ -1,5 +1,7 @@
 # Check the PR series against the current upstream master, not only the pinned tag:
 # the patches must still apply and the full Vanetza test suite must pass.
+# The run summary lists upstream commits since the pinned base, especially those
+# touching the files of the series.
 name: upstream master
 on:
   schedule:
@@ -14,9 +16,22 @@ jobs:
           submodules: true
       - name: move Vanetza submodule to upstream master
         run: |
-          git -C external/vanetza fetch --quiet origin master
+          pinned=$(git -C external/vanetza rev-parse HEAD)
+          git -C external/vanetza fetch --quiet --depth=500 origin master
           git -C external/vanetza checkout --quiet FETCH_HEAD
           git -C external/vanetza log -1 --format='upstream master %h %ci %s'
+          {
+            echo "### Upstream master $(git -C external/vanetza rev-parse --short HEAD), pinned base ${pinned:0:8}"
+            echo "New commits:"
+            echo '```'
+            git -C external/vanetza log --format='%h %cs %s' "$pinned"..HEAD || echo "history not available"
+            echo '```'
+            echo "Commits touching the files of the series or tools/pki:"
+            echo '```'
+            git -C external/vanetza log --format='%h %cs %s' "$pinned"..HEAD -- \
+              vanetza/asn1 vanetza/facilities tools/socktap tools/fuzz-harness tools/pki docs || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: apply PR series
         run: |
           git config --global user.name ci
