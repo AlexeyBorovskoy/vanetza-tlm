@@ -22,6 +22,7 @@
 #include <array>
 #include <chrono>
 #include <cstdint>
+#include <cstdlib>
 #include <string>
 
 using namespace vanetza;
@@ -29,6 +30,14 @@ using namespace vanetza::facilities;
 
 namespace
 {
+
+// remove an OPTIONAL scalar member allocated by asn1::allocate (calloc)
+template<typename T>
+void remove_optional(T*& member)
+{
+    std::free(member);
+    member = nullptr;
+}
 
 const auto meter = units::si::meter;
 
@@ -335,7 +344,7 @@ TEST(MapSpatValidation, rs_arsm_14_missing_lane_width_is_profile_only)
 {
     asn1::Mapem mapem;
     IntersectionGeometry& intersection = build_intersection(mapem);
-    intersection.laneWidth = nullptr;
+    remove_optional(intersection.laneWidth);
 
     EXPECT_FALSE(has_issue(validate_map(mapem->map, ValidationProfile::Standard), "RS_ARSM_14", Severity::Error));
     EXPECT_TRUE(has_issue(validate_map(mapem->map, ValidationProfile::Combined), "RS_ARSM_14", Severity::Error));
@@ -348,7 +357,7 @@ TEST(MapSpatValidation, rs_arsm_17_crosswalk_missing_approach_reports_error)
     GenericLane& crosswalk = add_crosswalk_lane(intersection, 1, 1, 2);
     add_node(crosswalk, -5.0 * meter, 0.0 * meter);
     add_node(crosswalk, 5.0 * meter, 0.0 * meter);
-    crosswalk.egressApproach = nullptr;
+    remove_optional(crosswalk.egressApproach);
 
     EXPECT_FALSE(has_issue(validate_map(mapem->map, ValidationProfile::Standard), "RS_ARSM_17", Severity::Error));
     EXPECT_TRUE(has_issue(validate_map(mapem->map, ValidationProfile::Combined), "RS_ARSM_17", Severity::Error));
@@ -409,7 +418,7 @@ TEST(MapSpatValidation, rs_arsm_48_connection_without_signal_group_is_profile_on
     connect(ingress, 2, Maneuver::Straight, 1, 1);
 
     ASSERT_NE(nullptr, ingress.connectsTo);
-    ingress.connectsTo->list.array[0]->signalGroup = nullptr;
+    remove_optional(ingress.connectsTo->list.array[0]->signalGroup);
 
     EXPECT_FALSE(has_issue(validate_map(mapem->map, ValidationProfile::Standard), "RS_ARSM_48", Severity::Warning));
     EXPECT_TRUE(has_issue(validate_map(mapem->map, ValidationProfile::Combined), "RS_ARSM_48", Severity::Warning));
@@ -543,8 +552,7 @@ TEST(MapSpatValidation, rs_arsm_57_max_end_time_with_traffic_dependent_operation
     MovementEvent& event = add_known_event(movement, MovementPhaseState_permissive_Movement_Allowed, reference_time,
         std::chrono::seconds(10));
     add_known_event(movement, MovementPhaseState_stop_And_Remain, reference_time, std::chrono::seconds(30));
-    ASN_STRUCT_FREE(asn_DEF_TimeMark, event.timing->maxEndTime);
-    event.timing->maxEndTime = nullptr;
+    remove_optional(event.timing->maxEndTime);
 
     EXPECT_TRUE(has_issue(validate_spat(spatem->spat, ValidationProfile::Car2Car), "RS_ARSM_57", Severity::Error));
     // under Combined the C-Roads rule makes maxEndTime mandatory regardless of the operation mode
@@ -682,7 +690,7 @@ TEST(MapSpatValidation, croads_max_end_time_required_is_profile_only)
     MovementEvent& event = add_known_event(movement, MovementPhaseState_permissive_Movement_Allowed, reference_time,
         std::chrono::seconds(10));
     add_known_event(movement, MovementPhaseState_stop_And_Remain, reference_time, std::chrono::seconds(30));
-    event.timing->maxEndTime = nullptr;
+    remove_optional(event.timing->maxEndTime);
 
     EXPECT_FALSE(has_issue(validate_spat(spatem->spat, ValidationProfile::Car2Car), "maxEndTime", Severity::Error));
     EXPECT_TRUE(has_issue(validate_spat(spatem->spat, ValidationProfile::CRoads), "maxEndTime", Severity::Error));
