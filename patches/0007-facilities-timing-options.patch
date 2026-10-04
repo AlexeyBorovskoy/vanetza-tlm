@@ -138,9 +138,37 @@ index 2409ae8..3654e91 100644
 +    EXPECT_EQ(g1->timing->minEndTime, *g1->timing->maxEndTime);
 +}
 diff --git a/vanetza/facilities/tests/spat_functions.cpp b/vanetza/facilities/tests/spat_functions.cpp
-index c17fe1e..00ef32e 100644
+index c17fe1e..e67f9ba 100644
 --- a/vanetza/facilities/tests/spat_functions.cpp
 +++ b/vanetza/facilities/tests/spat_functions.cpp
+@@ -184,8 +184,8 @@ TEST(SpatFunctions, timing_beyond_one_hour)
+     MovementTiming timing;
+     timing.start = Clock::at("2026-10-04 11:59:59.900");
+     timing.min_end = Clock::at("2026-10-05 07:00:00.000");
+-    timing.max_end = Clock::at("2026-10-04 13:00:00.000");
+-    timing.likely = Clock::at("2026-10-04 13:00:00.000");
++    timing.max_end = Clock::at("2026-10-05 08:00:00.000");
++    timing.likely = Clock::at("2026-10-05 07:30:00.000");
+     timing.confidence = 15;
+     timing.next = Clock::at("2026-10-04 13:00:00.000");
+     set_timing(event, timing, now);
+@@ -199,13 +199,13 @@ TEST(SpatFunctions, timing_beyond_one_hour)
+     EXPECT_EQ(nullptr, event.timing->nextTime);
+ 
+     timing.start = Clock::at("2026-10-04 12:00:00.000");
+-    timing.min_end = Clock::at("2026-10-04 12:59:59.900");
++    timing.min_end = Clock::at("2026-10-04 12:59:59.800");
+     timing.max_end = Clock::at("2026-10-04 12:59:59.850"); // rounded up to the last tenth
+     timing.likely = timing.min_end;
+-    timing.next = timing.min_end;
++    timing.next = Clock::at("2026-10-04 12:59:59.900");
+     set_timing(event, timing, now);
+ 
+-    EXPECT_EQ(35999, event.timing->minEndTime);
++    EXPECT_EQ(35998, event.timing->minEndTime);
+     ASSERT_NE(nullptr, event.timing->startTime);
+     EXPECT_EQ(0, *event.timing->startTime);
+     ASSERT_NE(nullptr, event.timing->maxEndTime);
 @@ -216,6 +216,91 @@ TEST(SpatFunctions, timing_beyond_one_hour)
      EXPECT_EQ(35999, *event.timing->nextTime);
  }
