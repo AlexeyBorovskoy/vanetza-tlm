@@ -16,9 +16,14 @@ namespace facilities
  * Semantic checks of MAPEM and SPATEM content beyond ASN.1 constraints.
  *
  * Sources: DSRC = ISO TS 19091 module with the profile comments published with ETSI TS 103 301,
- * RS = C2C-CC RS 2077 R1.6.2, Annex = profile columns of RS 2077 Annex 7 (7.1 MapData, 7.2 SPAT);
- * the C-Roads column agrees with the C-Roads IFS tables 12.4 (computed: not used) and 13.3
- * (confidence: mandatory if likelyTime is provided).
+ * RS = C2C-CC RS 2077 R1.6.2, Annex = profile columns of RS 2077 Annex 7 (7.1 MapData, 7.2 SPAT).
+ * The C-Roads column of Annex 7 summarises C-Roads Release 1.6 and is the basis of the C-Roads
+ * rules ("F": forbidden, "NU": not used, "O/M": mandatory under conditions). The public C-Roads
+ * IFS consulted ("C-ITS Infrastructure Functions and Specifications", C-ROADS Platform WG2 TF3,
+ * title page dated 27/05/2019, publication history up to the Release 1.5 draft, listed on
+ * https://www.c-roads.eu/documents/public-documents/) agrees for the checked elements: table 12.4
+ * computed "Not used" (Annex 7.1: F), table 13.3 confidence "Mandatory if likelyTime is
+ * provided"; Release 1.6 itself was not available for checking.
  * Rules of RS are reported only with ValidationProfile Car2Car or Combined, rules of the C-Roads
  * column only with CRoads or Combined. Checks without normative text ("project") are warnings in
  * every profile and never use an RS identifier.
@@ -77,8 +82,8 @@ namespace facilities
  *   informative statement of RS, implied by the meaning of the times); RS_ARSM_69 only status
  *   bits 5 to 9; RS_ARSM_70 exactly one of them; RS_ARSM_72 eventState dark not used;
  *   RS_ARSM_78 events sorted by minEndTime; RS_ARSM_79 events reach the next phase, a phase being
- *   MovementPhaseState 2, 3, 5 or 6 (RS_ARSM_95); a warning instead if the last listed event ends
- *   beyond the TimeMark horizon (minEndTime 36000), because no later event can be timed then;
+ *   MovementPhaseState 2, 3, 5 or 6 (RS_ARSM_95), also if the current event ends beyond the
+ *   TimeMark horizon (minEndTime 36000), since the next phase needs no timing (RS_ARSM_120);
  *   RS_ARSM_115 confidence with likelyTime ("C-Roads confidence" in the CRoads profile, Annex 7.2:
  *   mandatory if likelyTime is provided); RS_ARSM_120 timing present for every event preceding
  *   a phase event

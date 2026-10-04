@@ -414,16 +414,10 @@ void check_event_order(const std::vector<const MovementEvent_t*>& events, const 
         }
     }
 
-    // RS_ARSM_79: the next phase is listed; if the listed events end beyond the TimeMark horizon,
-    // the next phase cannot be given, so the gap is a warning instead of an error
+    // RS_ARSM_79: the current and the next phase are listed; the next phase needs no timing
+    // (RS_ARSM_120), so an event ending beyond the TimeMark horizon is no exception
     if (last_phase == 0) {
-        const MovementEvent_t& last = *events.back();
-        if (last.timing && last.timing->minEndTime == time_mark_out_of_range) {
-            result.add(Severity::Warning, "RS_ARSM_79", path + ".state-time-speed",
-                "next phase beyond the TimeMark horizon, not listed");
-        } else {
-            result.add(Severity::Error, "RS_ARSM_79", path + ".state-time-speed", "events do not reach the next phase");
-        }
+        result.add(Severity::Error, "RS_ARSM_79", path + ".state-time-speed", "events do not reach the next phase");
     }
 }
 
