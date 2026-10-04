@@ -16,27 +16,32 @@ namespace facilities
  * Semantic checks of MAPEM and SPATEM content beyond ASN.1 constraints.
  *
  * Sources: DSRC = ISO TS 19091 module with the profile comments published with ETSI TS 103 301,
- * RS = C2C-CC RS 2077 R1.6.2, Annex = profile columns of RS 2077 Annex 7 (7.1 MapData, 7.2 SPAT).
+ * RS = C2C-CC RS 2077 R1.6.2, Annex = profile columns of RS 2077 Annex 7 (7.1 MapData, 7.2 SPAT);
+ * the C-Roads column agrees with the C-Roads IFS tables 12.4 (computed: not used) and 13.3
+ * (confidence: mandatory if likelyTime is provided).
  * Rules of RS are reported only with ValidationProfile Car2Car or Combined, rules of the C-Roads
  * column only with CRoads or Combined. Checks without normative text ("project") are warnings in
  * every profile and never use an RS identifier.
  *
- * A message violating its ASN.1 constraints is reported by rule "ASN.1" only; the semantic
- * checks need a structurally valid message and are skipped. SEQUENCE OF sizes and empty list
- * elements, which asn1c constraint checking does not cover, are reported as "ASN.1" as well.
+ * A message violating its ASN.1 type is reported by rule "ASN.1" only (see check_asn1(): the
+ * asn1c constraints plus SEQUENCE OF sizes, empty list elements and malformed structures at any
+ * depth); the semantic checks need a structurally valid message and are skipped.
  *
  * Coverage is partial: requirements on geometry (node offsets, lane widths, distances),
  * transmission (rates, revision changes over time) and checks needing more than one message
  * besides a MapData/SPAT pair are not covered.
  *
  * MapData (validate_map)
- * - "ASN.1": constraints, error
+ * - "ASN.1": ASN.1 type, error
+ * - "layerID": not a fragment number, i.e. tens 2 to 9 giving the number of fragments and units
+ *   1 to that number giving the fragment (DSRC LayerID, MapData profile comment: not used without
+ *   fragmentation), error; such a MapData is checked like a complete one
  * - "msgIssueRevision": not 0 (DSRC MapData profile comment), error
  * - "layerType": present (DSRC MapData profile comment: shall not be used), error
  * - "LaneID unique": duplicate LaneID within an intersection (DSRC LaneID), error
  * - "LaneID value": a lane with LaneID 0 (not known) or 255 (reserved) (DSRC LaneID), warning
  * - "connectingLane": target lane of a local connection does not exist, error; warning for a
- *   MapData fragment (layerID present), whose target may be in another fragment; target LaneID 0
+ *   MapData fragment (valid layerID), whose target may be in another fragment; target LaneID 0
  *   (not known) or 255 (reserved) is a warning instead (DSRC LaneID, Connection, MapData.layerID)
  * - "connectionID": one LaneConnectionID with different signal groups (project; DSRC allows
  *   shared connection IDs), warning
@@ -47,15 +52,17 @@ namespace facilities
  *   (uniqueness within the radius dRangeIdUnique is not checkable); RS_ARSM_14 laneWidth present;
  *   RS_ARSM_16 unidirectional lane with exactly one of ingressApproach and egressApproach;
  *   RS_ARSM_17 bidirectional crosswalk or bike lane with both approaches; RS_ARSM_20 no duplicate
- *   connection to the same lane with the same direction; RS_ARSM_21 connectingLane.maneuver present;
+ *   connection to the same lane (LaneID 1 to 254 of this intersection) with the same direction;
+ *   RS_ARSM_21 connectingLane.maneuver present;
  *   RS_ARSM_22 exactly one direction bit; RS_ARSM_24 no turn-on-red or lane change bit;
  *   RS_ARSM_35 at most 18 nodes per lane; RS_ARSM_48 signalGroup present (warning, the validator
- *   cannot know whether the connection is signalised); RS_ARSM_117 no lane level maneuvers
- * - Car2Car, CRoads, Combined: RS_ARSM_118 nodeList uses nodes, not computed
- * - CRoads/Combined: "C-Roads intersections" present, "C-Roads connectionID" present (Annex 7.1)
+ *   cannot know whether the connection is signalised); RS_ARSM_117 no lane level maneuvers;
+ *   RS_ARSM_118 nodeList uses nodes, not computed
+ * - CRoads/Combined: "C-Roads intersections" present, "C-Roads connectionID" present; CRoads:
+ *   "C-Roads computed" nodeList not computed (Annex 7.1; Combined reports RS_ARSM_118 instead)
  *
  * SPAT (validate_spat)
- * - "ASN.1": constraints, error
+ * - "ASN.1": ASN.1 type, error
  * - "SignalGroupID unique": a second MovementState for a signal group (project), warning
  * - "SignalGroupID value": signal group 0 (not known) (DSRC SignalGroupID), warning
  * - "SignalGroupID 255": signal group 255 denotes a permanent green movement state, an event of
@@ -70,7 +77,7 @@ namespace facilities
  *   informative statement of RS, implied by the meaning of the times); RS_ARSM_69 only status
  *   bits 5 to 9; RS_ARSM_70 exactly one of them; RS_ARSM_72 eventState dark not used;
  *   RS_ARSM_78 events sorted by minEndTime; RS_ARSM_79 events reach the next phase, a phase being
- *   MovementPhaseState 2, 3, 5 or 6 (RS_ARSM_95); not reported if the last listed event ends
+ *   MovementPhaseState 2, 3, 5 or 6 (RS_ARSM_95); a warning instead if the last listed event ends
  *   beyond the TimeMark horizon (minEndTime 36000), because no later event can be timed then;
  *   RS_ARSM_115 confidence with likelyTime ("C-Roads confidence" in the CRoads profile, Annex 7.2:
  *   mandatory if likelyTime is provided); RS_ARSM_120 timing present for every event preceding
@@ -92,7 +99,7 @@ namespace facilities
  *   every IntersectionGeometry; RS_ARSM_49 ("map/spat signal group") every signal group of
  *   a connection has a MovementState; RS_ARSM_75 ("map/spat signal group") every MovementState
  *   signal group is used by a connection; RS_ARSM_68 and RS_ARSM_75 are not checked for a
- *   MapData fragment (layerID present), whose other fragments may describe the rest
+ *   MapData fragment (valid layerID), whose other fragments may describe the rest
  *
  * Paths start with the name of the validated type, e.g. "SPAT.intersections[0].states[2]".
  */

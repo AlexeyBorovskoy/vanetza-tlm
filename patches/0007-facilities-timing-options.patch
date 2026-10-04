@@ -138,7 +138,7 @@ index 2409ae8..3654e91 100644
 +    EXPECT_EQ(g1->timing->minEndTime, *g1->timing->maxEndTime);
 +}
 diff --git a/vanetza/facilities/tests/spat_functions.cpp b/vanetza/facilities/tests/spat_functions.cpp
-index c17fe1e..e67f9ba 100644
+index c17fe1e..840ccf8 100644
 --- a/vanetza/facilities/tests/spat_functions.cpp
 +++ b/vanetza/facilities/tests/spat_functions.cpp
 @@ -184,8 +184,8 @@ TEST(SpatFunctions, timing_beyond_one_hour)
@@ -169,7 +169,7 @@ index c17fe1e..e67f9ba 100644
      ASSERT_NE(nullptr, event.timing->startTime);
      EXPECT_EQ(0, *event.timing->startTime);
      ASSERT_NE(nullptr, event.timing->maxEndTime);
-@@ -216,6 +216,91 @@ TEST(SpatFunctions, timing_beyond_one_hour)
+@@ -216,6 +216,107 @@ TEST(SpatFunctions, timing_beyond_one_hour)
      EXPECT_EQ(35999, *event.timing->nextTime);
  }
  
@@ -243,19 +243,35 @@ index c17fe1e..e67f9ba 100644
 +        MovementPhaseState_stop_And_Remain);
 +
 +    const auto now = Clock::at("2026-10-04 12:00:30.000");
++    MovementTiming previous;
++    previous.min_end = now + std::chrono::seconds(10);
++    previous.max_end = previous.min_end;
++    set_timing(event, previous, now);
++    const TimeChangeDetails_t* const details = event.timing;
++    ASSERT_NE(nullptr, details);
++    const auto expect_previous_timing = [&]() {
++        EXPECT_EQ(details, event.timing);
++        EXPECT_EQ(400, event.timing->minEndTime);
++        ASSERT_NE(nullptr, event.timing->maxEndTime);
++        EXPECT_EQ(400, *event.timing->maxEndTime);
++        EXPECT_EQ(nullptr, event.timing->likelyTime);
++    };
++
 +    TimingOptions options;
 +    options.always_max_end = true;
 +    MovementTiming timing;
 +    timing.min_end = now + std::chrono::seconds(5);
 +    timing.max_end = Clock::at("2026-10-04 11:59:59.000");
 +    EXPECT_THROW(set_timing(event, timing, now, options), std::invalid_argument);
++    expect_previous_timing();
 +    EXPECT_THROW(set_timing(event, timing, now), std::invalid_argument);
-+    EXPECT_EQ(nullptr, event.timing); // previous timing untouched
++    expect_previous_timing();
 +
 +    timing.max_end = boost::none;
 +    timing.likely = now + std::chrono::seconds(4);
 +    timing.confidence = 15;
 +    EXPECT_THROW(set_timing(event, timing, now), std::invalid_argument);
++    expect_previous_timing();
 +}
 +
  TEST(SpatFunctions, set_timing_replaces_previous_timing)

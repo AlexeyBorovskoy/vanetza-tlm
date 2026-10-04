@@ -1,4 +1,3 @@
-#include <vanetza/asn1/asn1c_wrapper.hpp>
 #include <vanetza/asn1/its/ConnectsToList.h>
 #include <vanetza/asn1/its/GenericLane.h>
 #include <vanetza/asn1/its/IntersectionGeometry.h>
@@ -64,88 +63,28 @@ std::string item(const std::string& path, const char* field, int index)
     return path + "." + field + "[" + std::to_string(index) + "]";
 }
 
-bool check_constraints(asn_TYPE_descriptor_t& type, const void* structure, const std::string& path,
-        ValidationResult& result)
+// LayerID of a MapData fragment: tens give the number of fragments (2 to 9), units the fragment
+// (1 to that number), e.g. 21 and 22 for two fragments (ISO TS 19091 LayerID, ETSI TS 103 301
+// profile); without fragmentation layerID is not used
+bool fragment_layer(long layer)
 {
-    std::string error;
-    if (!asn1::validate(type, structure, error)) {
-        result.add(Severity::Error, "ASN.1", path, error);
+    const long fragments = layer / 10;
+    const long fragment = layer % 10;
+    return fragments >= 2 && fragments <= 9 && fragment >= 1 && fragment <= fragments;
+}
+
+// true if the MapData is a valid fragment, connected lanes and signal groups may be in another one
+bool check_layer(const MapData& map, ValidationResult& result)
+{
+    if (!map.layerID) {
+        return false;
+    }
+    if (!fragment_layer(*map.layerID)) {
+        result.add(Severity::Error, "layerID", "MapData.layerID", "layerID " + std::to_string(*map.layerID) +
+            " is not <fragments><fragment> with 2 to 9 fragments, fragment checks are not relaxed");
         return false;
     }
     return true;
-}
-
-// SIZE of a SEQUENCE OF and its elements, which asn1c constraint checking does not cover
-template<typename LIST>
-bool check_list(const LIST& list, int min, int max, const std::string& path, ValidationResult& result)
-{
-    bool valid = true;
-    if (list.list.count < min || list.list.count > max) {
-        result.add(Severity::Error, "ASN.1", path, std::to_string(list.list.count) + " elements, SIZE(" +
-            std::to_string(min) + ".." + std::to_string(max) + ")");
-        valid = false;
-    }
-    for (int i = 0; i < list.list.count; ++i) {
-        if (!list.list.array[i]) {
-            result.add(Severity::Error, "ASN.1", path + "[" + std::to_string(i) + "]", "empty list element");
-            valid = false;
-        }
-    }
-    return valid;
-}
-
-// ISO TS 19091: IntersectionGeometryList SIZE(1..32), LaneList SIZE(1..255), NodeSetXY SIZE(2..63),
-// ConnectsToList SIZE(1..16)
-bool check_structure(const MapData& map, ValidationResult& result)
-{
-    if (!map.intersections) {
-        return true;
-    }
-    bool valid = check_list(*map.intersections, 1, 32, "MapData.intersections", result);
-    for (int i = 0; i < map.intersections->list.count; ++i) {
-        const IntersectionGeometry* geometry = map.intersections->list.array[i];
-        if (!geometry) {
-            continue;
-        }
-        const std::string path = item("MapData", "intersections", i);
-        valid = check_list(geometry->laneSet, 1, 255, path + ".laneSet", result) && valid;
-        for (int j = 0; j < geometry->laneSet.list.count; ++j) {
-            const GenericLane* lane = geometry->laneSet.list.array[j];
-            if (!lane) {
-                continue;
-            }
-            const std::string lane_path = item(path, "laneSet", j);
-            if (lane->nodeList.present == NodeListXY_PR_nodes) {
-                valid = check_list(lane->nodeList.choice.nodes, 2, 63, lane_path + ".nodeList.nodes", result) && valid;
-            }
-            if (lane->connectsTo) {
-                valid = check_list(*lane->connectsTo, 1, 16, lane_path + ".connectsTo", result) && valid;
-            }
-        }
-    }
-    return valid;
-}
-
-// ISO TS 19091: IntersectionStateList SIZE(1..32), MovementList SIZE(1..255), MovementEventList SIZE(1..16)
-bool check_structure(const SPAT& spat, ValidationResult& result)
-{
-    bool valid = check_list(spat.intersections, 1, 32, "SPAT.intersections", result);
-    for (int i = 0; i < spat.intersections.list.count; ++i) {
-        const IntersectionState* state = spat.intersections.list.array[i];
-        if (!state) {
-            continue;
-        }
-        const std::string path = item("SPAT", "intersections", i);
-        valid = check_list(state->states, 1, 255, path + ".states", result) && valid;
-        for (int j = 0; j < state->states.list.count; ++j) {
-            const MovementState* movement = state->states.list.array[j];
-            if (movement) {
-                const std::string movement_path = item(path, "states", j) + ".state-time-speed";
-                valid = check_list(movement->state_time_speed, 1, 16, movement_path, result) && valid;
-            }
-        }
-    }
-    return valid;
 }
 
 struct ReferenceId
@@ -202,8 +141,12 @@ void check_lane(const GenericLane& lane, const std::string& path, const MapConte
         result.add(Severity::Warning, "LaneID value", path,
             "LaneID " + std::to_string(lane.laneID) + " means not known (0) or is reserved (255)");
     }
-    if (any_additional_profile(context.profile) && lane.nodeList.present == NodeListXY_PR_computed) {
-        result.add(Severity::Error, "RS_ARSM_118", path + ".nodeList", "computed lane instead of nodes");
+    if (lane.nodeList.present == NodeListXY_PR_computed) {
+        if (car2car(context.profile)) {
+            result.add(Severity::Error, "RS_ARSM_118", path + ".nodeList", "computed lane instead of nodes");
+        } else if (croads(context.profile)) {
+            result.add(Severity::Error, "C-Roads computed", path + ".nodeList", "computed lane used (Annex 7.1)");
+        }
     }
     if (!car2car(context.profile)) {
         return;
@@ -293,7 +236,7 @@ void check_connections(const GenericLane& lane, const std::string& path, const s
     if (!lane.connectsTo) {
         return;
     }
-    std::set<std::pair<long, int>> seen; // local target lane and direction bits
+    std::set<std::pair<long, int>> seen; // local target lane (1 to 254) and direction bits
     for (int k = 0; k < lane.connectsTo->list.count; ++k) {
         const std::string connection_path = item(path, "connectsTo", k);
         const Connection_t* connection = lane.connectsTo->list.array[k];
@@ -304,7 +247,9 @@ void check_connections(const GenericLane& lane, const std::string& path, const s
         }
         if (car2car(context.profile)) {
             check_maneuver(*connection, connection_path, result);
-            if (local && directions(*connection) >= 0 && !seen.insert({ target, directions(*connection) }).second) {
+            const bool numbered = target >= 1 && target <= 254; // 0 not known, 255 reserved
+            if (local && numbered && directions(*connection) >= 0 &&
+                    !seen.insert({ target, directions(*connection) }).second) {
                 result.add(Severity::Error, "RS_ARSM_20", connection_path,
                     "second connection to LaneID " + std::to_string(target) + " with the same direction");
             }
@@ -469,11 +414,16 @@ void check_event_order(const std::vector<const MovementEvent_t*>& events, const 
         }
     }
 
-    // RS_ARSM_79: the next phase is listed, unless the listed events end beyond the TimeMark horizon
-    const MovementEvent_t& last = *events.back();
-    const bool beyond_horizon = last.timing && last.timing->minEndTime == time_mark_out_of_range;
-    if (last_phase == 0 && !beyond_horizon) {
-        result.add(Severity::Error, "RS_ARSM_79", path + ".state-time-speed", "events do not reach the next phase");
+    // RS_ARSM_79: the next phase is listed; if the listed events end beyond the TimeMark horizon,
+    // the next phase cannot be given, so the gap is a warning instead of an error
+    if (last_phase == 0) {
+        const MovementEvent_t& last = *events.back();
+        if (last.timing && last.timing->minEndTime == time_mark_out_of_range) {
+            result.add(Severity::Warning, "RS_ARSM_79", path + ".state-time-speed",
+                "next phase beyond the TimeMark horizon, not listed");
+        } else {
+            result.add(Severity::Error, "RS_ARSM_79", path + ".state-time-speed", "events do not reach the next phase");
+        }
     }
 }
 
@@ -608,9 +558,10 @@ PairRule pair_rule(ValidationProfile profile, const char* requirement, const cha
 ValidationResult validate_map(const MapData& map, ValidationProfile profile)
 {
     ValidationResult result;
-    if (!check_constraints(asn_DEF_MapData, &map, "MapData", result) || !check_structure(map, result)) {
+    if (!check_asn1(asn_DEF_MapData, &map, "MapData", result)) {
         return result;
     }
+    const bool fragment = check_layer(map, result);
     if (map.msgIssueRevision != 0) {
         result.add(Severity::Error, "msgIssueRevision", "MapData.msgIssueRevision",
             "shall be 0, revisions are given per intersection");
@@ -625,7 +576,7 @@ ValidationResult validate_map(const MapData& map, ValidationProfile profile)
         return result;
     }
 
-    const MapContext context { profile, map.layerID != nullptr };
+    const MapContext context { profile, fragment };
     std::vector<ReferenceId> seen;
     for (int i = 0; i < map.intersections->list.count; ++i) {
         const std::string path = item("MapData", "intersections", i);
@@ -639,7 +590,7 @@ ValidationResult validate_map(const MapData& map, ValidationProfile profile)
 ValidationResult validate_spat(const SPAT& spat, ValidationProfile profile)
 {
     ValidationResult result;
-    if (!check_constraints(asn_DEF_SPAT, &spat, "SPAT", result) || !check_structure(spat, result)) {
+    if (!check_asn1(asn_DEF_SPAT, &spat, "SPAT", result)) {
         return result;
     }
 
@@ -656,9 +607,9 @@ ValidationResult validate_spat(const SPAT& spat, ValidationProfile profile)
 ValidationResult validate_map_spat(const MapData& map, const SPAT& spat, ValidationProfile profile)
 {
     ValidationResult result;
-    ValidationResult structure;
-    if (!check_constraints(asn_DEF_MapData, &map, "MapData", structure) || !check_structure(map, structure) ||
-            !check_constraints(asn_DEF_SPAT, &spat, "SPAT", structure) || !check_structure(spat, structure)) {
+    ValidationResult structure; // reported by validate_map and validate_spat
+    if (!check_asn1(asn_DEF_MapData, &map, "MapData", structure) ||
+            !check_asn1(asn_DEF_SPAT, &spat, "SPAT", structure)) {
         return result;
     }
 
@@ -671,7 +622,7 @@ ValidationResult validate_map_spat(const MapData& map, const SPAT& spat, Validat
         states.emplace_back(spat.intersections.list.array[i], item("SPAT", "intersections", i));
     }
 
-    const bool fragment = map.layerID != nullptr;
+    const bool fragment = map.layerID && fragment_layer(*map.layerID); // invalid layerID: see validate_map
     const PairRule state_without_geometry = pair_rule(profile, "RS_ARSM_68", "map/spat intersection");
     const PairRule geometry_without_state = pair_rule(profile, "RS_ARSM_13", "map/spat intersection");
     const PairRule map_group_without_state = pair_rule(profile, "RS_ARSM_49", "map/spat signal group");

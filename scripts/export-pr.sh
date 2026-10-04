@@ -98,7 +98,10 @@ against the MapData of its intersections: lane and signal group
 references, identifiers, timing order and the requirements of
 C2C-CC RS 2077 and C-Roads, selected by a validation profile. Every
 issue carries its rule, severity and field path; rules without
-normative text are warnings only." \
+normative text are warnings only. check_asn1() walks the asn1c
+structure along its type description before the asn1c constraint
+check, so SEQUENCE OF sizes it does not cover and malformed
+structures it would dereference are reported instead." \
     0006-facilities-map-spat-validation.patch -- \
     vanetza/facilities/validation.hpp vanetza/facilities/validation.cpp \
     vanetza/facilities/map_spat_validation.hpp vanetza/facilities/map_spat_validation.cpp \
