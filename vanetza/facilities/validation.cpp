@@ -45,8 +45,7 @@ public:
         } else if (type.op == &asn_OP_SEQUENCE_OF || type.op == &asn_OP_SET_OF) {
             walk_list(type, member, structure, path, depth);
         } else if (type.op == &asn_OP_BIT_STRING) {
-            check_buffer(static_cast<const BIT_STRING_t*>(structure)->buf,
-                static_cast<const BIT_STRING_t*>(structure)->size, path);
+            check_bit_string(*static_cast<const BIT_STRING_t*>(structure), path);
         } else if (type.op->free_struct == OCTET_STRING_free) {
             // OCTET STRING and the restricted character string types share OCTET_STRING_t
             check_buffer(static_cast<const OCTET_STRING_t*>(structure)->buf,
@@ -154,6 +153,17 @@ private:
     {
         if (!buffer && size > 0) {
             fail(path, "size " + std::to_string(size) + " without buffer");
+        }
+    }
+
+    // padding as BIT_STRING_constraint checks it; a generated SIZE constraint replaces that check
+    // and masks bits_unused to three bits
+    void check_bit_string(const BIT_STRING_t& bits, const std::string& path)
+    {
+        check_buffer(bits.buf, bits.size, path);
+        if (bits.bits_unused < 0 || bits.bits_unused > 7 || (bits.size == 0 && bits.bits_unused != 0)) {
+            fail(path, "bits_unused " + std::to_string(bits.bits_unused) + " for " + std::to_string(bits.size) +
+                " bytes, 0 to 7 and 0 without content allowed");
         }
     }
 
