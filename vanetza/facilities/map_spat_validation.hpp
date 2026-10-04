@@ -44,7 +44,7 @@ namespace facilities
  *   required nor forbidden by ISO TS 19091 (project), warning
  * - Car2Car/Combined, errors unless noted:
  *   RS_ARSM_11 region present; RS_ARSM_12 IntersectionReferenceID used twice within the message
- *   (the 5 km uniqueness radius is not checkable); RS_ARSM_14 laneWidth present;
+ *   (uniqueness within the radius dRangeIdUnique is not checkable); RS_ARSM_14 laneWidth present;
  *   RS_ARSM_16 unidirectional lane with exactly one of ingressApproach and egressApproach;
  *   RS_ARSM_17 bidirectional crosswalk or bike lane with both approaches; RS_ARSM_20 no duplicate
  *   connection to the same lane with the same direction; RS_ARSM_21 connectingLane.maneuver present;
@@ -64,17 +64,20 @@ namespace facilities
  * - Car2Car/Combined, errors: RS_ARSM_11, RS_ARSM_12 for IntersectionState ids;
  *   RS_ARSM_56 minEndTime not 36001; RS_ARSM_57 maxEndTime and RS_ARSM_64 likelyTime present for
  *   traffic dependent operation; RS_ARSM_60 maxEndTime and RS_ARSM_66 likelyTime not 36001;
- *   RS_ARSM_61 present end times equal for fixed time operation, a maxEndTime of 36000 meaning
- *   the time of change is not known; RS_ARSM_65 minEndTime <= likelyTime <= maxEndTime (an
+ *   RS_ARSM_61 present end times equal for fixed time operation, not checked if minEndTime is
+ *   36000 (the change lies beyond the TimeMark horizon), and a maxEndTime of 36000 (not known,
+ *   RS_ARSM_59) is not compared; RS_ARSM_65 minEndTime <= likelyTime <= maxEndTime (an
  *   informative statement of RS, implied by the meaning of the times); RS_ARSM_69 only status
  *   bits 5 to 9; RS_ARSM_70 exactly one of them; RS_ARSM_72 eventState dark not used;
  *   RS_ARSM_78 events sorted by minEndTime; RS_ARSM_79 events reach the next phase, a phase being
  *   MovementPhaseState 2, 3, 5 or 6 (RS_ARSM_95); not reported if the last listed event ends
  *   beyond the TimeMark horizon (minEndTime 36000), because no later event can be timed then;
- *   RS_ARSM_115 confidence with likelyTime; RS_ARSM_120 timing present for every event preceding
+ *   RS_ARSM_115 confidence with likelyTime ("C-Roads confidence" in the CRoads profile, Annex 7.2:
+ *   mandatory if likelyTime is provided); RS_ARSM_120 timing present for every event preceding
  *   a phase event
  * - Car2Car, CRoads, Combined: "moy" present (Annex 7.2)
- * - CRoads/Combined: "C-Roads maxEndTime" and "C-Roads timeStamp" present (Annex 7.2)
+ * - CRoads/Combined: "C-Roads maxEndTime" and "C-Roads timeStamp" present (Annex 7.2); in Combined
+ *   a missing maxEndTime is reported once, as "C-Roads maxEndTime"
  *
  * TimeMarks are compared after resolving them relative to the minute given by moy
  * (RS_ARSM_54): a TimeMark before that minute belongs to the next hour, 36000 lies beyond all

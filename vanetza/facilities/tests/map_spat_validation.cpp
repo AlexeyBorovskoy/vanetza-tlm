@@ -1388,6 +1388,9 @@ TEST(MapSpatValidation, rs_arsm_115_likely_time_without_confidence_reports_error
 
     EXPECT_EQ(no_issues, rule_list(validate_spat(spatem->spat, ValidationProfile::Standard)));
     EXPECT_EQ(std::vector<std::string>{"RS_ARSM_115"}, rule_list(validate_spat(spatem->spat, ValidationProfile::Combined)));
+    // C-Roads: confidence "mandatory if likelyTime is provided" (RS 2077 Annex 7.2, C-Roads column)
+    EXPECT_EQ(std::vector<std::string>{"C-Roads confidence"},
+        rule_list(validate_spat(spatem->spat, ValidationProfile::CRoads)));
 }
 
 TEST(MapSpatValidation, rs_arsm_120_missing_timing_before_phase_reports_error_at_full_path)
