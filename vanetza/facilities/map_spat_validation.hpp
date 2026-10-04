@@ -24,8 +24,8 @@ namespace facilities
  * every profile and never use an RS identifier.
  *
  * A message violating its ASN.1 type is reported by rule "ASN.1" only (see check_asn1(): the
- * asn1c constraints plus SEQUENCE OF sizes, empty list elements and malformed structures at any
- * depth); the semantic checks need a structurally valid message and are skipped.
+ * asn1c constraints plus the SIZE of named SEQUENCE OF types, empty list elements and malformed
+ * structures at any depth); the semantic checks need a structurally valid message and are skipped.
  *
  * Coverage is partial: requirements on geometry (node offsets, lane widths, distances),
  * transmission (rates, revision changes over time) and checks needing more than one message
