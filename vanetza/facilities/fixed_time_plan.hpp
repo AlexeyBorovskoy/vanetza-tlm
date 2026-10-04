@@ -2,6 +2,7 @@
 #define FIXED_TIME_PLAN_HPP_Q7CMV4TB
 
 #include <vanetza/common/clock.hpp>
+#include <vanetza/facilities/spat_functions.hpp>
 #include <vanetza/units/length.hpp>
 #include <boost/optional/optional.hpp>
 #include <array>
@@ -83,6 +84,7 @@ struct ControllerConfig
     std::vector<PlanConfig> plans; /**< all plans */
     std::array<std::vector<ScheduleEntry>, 7> week; /**< day programs, Monday first */
     Clock::duration utc_offset; /**< local time minus UTC */
+    TimingOptions timing; /**< encoding of movement event timing, e.g. always_max_end for C-Roads */
 };
 
 /** One signal state of a group within a cycle */

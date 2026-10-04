@@ -70,8 +70,8 @@ jobs:
               -DCMAKE_C_FLAGS="$flags" -DCMAKE_CXX_FLAGS="$flags" \
               -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined" \
               -DBUILD_TESTS=ON -DBUILD_SOCKTAP=ON -DGTest_BUILD_DIRECTORY_DOWNLOAD=ON
-            cmake --build build --target GTest_SpatemMapemAsn1 GTest_SpatFunctions GTest_MapFunctions GTest_FixedTimePlan GTest_PriorityFunctions GTest_PriorityRequestTable
-            ctest --test-dir build -R "SpatemMapemAsn1|SpatFunctions|MapFunctions|FixedTimePlan|PriorityFunctions|PriorityRequestTable" --output-on-failure'
+            cmake --build build --target GTest_SpatemMapemAsn1 GTest_SpatFunctions GTest_MapFunctions GTest_FixedTimePlan GTest_PriorityFunctions GTest_PriorityRequestTable GTest_MapSpatValidation
+            ctest --test-dir build -R "SpatemMapemAsn1|SpatFunctions|MapFunctions|FixedTimePlan|PriorityFunctions|PriorityRequestTable|MapSpatValidation" --output-on-failure'
 
   # project addition: two socktap stations exchange SPATEM/MAPEM over UDP multicast,
   # the traffic is captured and decoded independently by Wireshark (tshark)
@@ -198,7 +198,7 @@ jobs:
               cmake -G Ninja -S /source -B /build -DBUILD_TESTS=ON -DBUILD_SOCKTAP=ON -DBUILD_FUZZ=ON \
                 -DGTest_BUILD_DIRECTORY_DOWNLOAD=ON
               cmake --build /build
-              ctest --test-dir /build -R "SpatemMapemAsn1|SpatFunctions|MapFunctions|FixedTimePlan|PriorityFunctions|PriorityRequestTable" --output-on-failure'
+              ctest --test-dir /build -R "SpatemMapemAsn1|SpatFunctions|MapFunctions|FixedTimePlan|PriorityFunctions|PriorityRequestTable|MapSpatValidation" --output-on-failure'
             echo "::endgroup::"
           done
 

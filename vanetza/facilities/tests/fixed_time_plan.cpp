@@ -531,3 +531,24 @@ TEST(FixedTimePlan, rejects_times_longer_than_a_day)
     config.utc_offset = hours(25);
     EXPECT_THROW(FixedTimePlan { config }, std::invalid_argument);
 }
+
+TEST(FixedTimePlan, always_max_end_for_states_without_known_end)
+{
+    ControllerConfig config = two_stage_config();
+    config.groups.push_back(make_group(10, SignalGroupKind::Traffic)); // in no stage, always red
+    config.timing.always_max_end = true;
+    const FixedTimePlan controller(config);
+
+    asn1::Spatem spatem;
+    controller.fill(spatem->spat, 7, 3, Clock::at("2026-10-05 06:30:00"));
+    const IntersectionState_t* intersection = spatem->spat.intersections.list.array[0];
+    const MovementEvent_t* g10 = intersection->states.list.array[9]->state_time_speed.list.array[0];
+    EXPECT_EQ(cTimeMarkOutOfRange, g10->timing->minEndTime);
+    ASSERT_NE(nullptr, g10->timing->maxEndTime);
+    EXPECT_EQ(cTimeMarkOutOfRange, *g10->timing->maxEndTime);
+
+    // known ends stay equal (RS_ARSM_61)
+    const MovementEvent_t* g1 = intersection->states.list.array[0]->state_time_speed.list.array[0];
+    ASSERT_NE(nullptr, g1->timing->maxEndTime);
+    EXPECT_EQ(g1->timing->minEndTime, *g1->timing->maxEndTime);
+}
