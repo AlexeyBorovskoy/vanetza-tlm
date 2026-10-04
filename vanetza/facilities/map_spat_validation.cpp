@@ -387,6 +387,13 @@ void check_timing(const TimeChangeDetails_t& timing, const std::string& path, co
     } else if (car2car(context.profile) && context.traffic_dependent && !timing.maxEndTime) {
         result.add(Severity::Error, "RS_ARSM_57", path, "maxEndTime missing for traffic dependent operation");
     }
+    if (timing.likelyTime && !timing.confidence) {
+        if (car2car(context.profile)) {
+            result.add(Severity::Error, "RS_ARSM_115", path, "likelyTime without confidence");
+        } else if (croads(context.profile)) {
+            result.add(Severity::Error, "C-Roads confidence", path, "likelyTime without confidence (Annex 7.2)");
+        }
+    }
     if (!car2car(context.profile)) {
         return;
     }
@@ -402,9 +409,6 @@ void check_timing(const TimeChangeDetails_t& timing, const std::string& path, co
     }
     if (timing.likelyTime && *timing.likelyTime == time_mark_unknown) {
         result.add(Severity::Error, "RS_ARSM_66", path + ".likelyTime", "likelyTime unknown");
-    }
-    if (timing.likelyTime && !timing.confidence) {
-        result.add(Severity::Error, "RS_ARSM_115", path, "likelyTime without confidence");
     }
 
     const boost::optional<long> min = resolve(timing.minEndTime, context.minute_mark);
