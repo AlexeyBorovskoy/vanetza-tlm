@@ -22,7 +22,8 @@ patch series.
 ## Build and test
 
 ```sh
-git clone --recurse-submodules <this repo>
+git clone --recurse-submodules https://github.com/AlexeyBorovskoy/vanetza-tlm.git
+cd vanetza-tlm
 scripts/overlay.sh          # Vanetza v26.09 + this overlay -> work/vanetza
 cmake -S work/vanetza -B build -DBUILD_TESTS=ON -DBUILD_SOCKTAP=ON
 cmake --build build -j
@@ -32,6 +33,11 @@ ctest --test-dir build --output-on-failure
 `scripts/export-pr.sh` writes the upstream series to `work/pr` (asn1 tests, message helpers,
 fuzzing, fixed-time plan model, socktap applications and docs) and fails if it does not
 reproduce the overlay.
+
+## Status
+
+The series is proposed to the Vanetza maintainer and is not part of Vanetza. Further work
+beyond it, semantic validation of MAPEM and SPATEM, is in draft pull request #1.
 
 ## Continuous integration
 
