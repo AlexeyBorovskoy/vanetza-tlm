@@ -70,8 +70,8 @@ jobs:
               -DCMAKE_C_FLAGS="$flags" -DCMAKE_CXX_FLAGS="$flags" \
               -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined" \
               -DBUILD_TESTS=ON -DBUILD_SOCKTAP=ON -DGTest_BUILD_DIRECTORY_DOWNLOAD=ON
-            cmake --build build --target GTest_SpatemMapemAsn1 GTest_SpatFunctions GTest_MapFunctions GTest_FixedTimePlan GTest_PriorityFunctions GTest_PriorityRequestTable GTest_MapSpatValidation
-            ctest --test-dir build -R "SpatemMapemAsn1|SpatFunctions|MapFunctions|FixedTimePlan|PriorityFunctions|PriorityRequestTable|MapSpatValidation" --output-on-failure'
+            cmake --build build --target GTest_SpatemMapemAsn1 GTest_SpatFunctions GTest_MapFunctions GTest_FixedTimePlan GTest_PriorityFunctions GTest_PriorityRequestTable GTest_MapSpatValidation GTest_ReferenceVectors
+            ctest --test-dir build -R "SpatemMapemAsn1|SpatFunctions|MapFunctions|FixedTimePlan|PriorityFunctions|PriorityRequestTable|MapSpatValidation|ReferenceVectors" --output-on-failure'
 
   # project addition: two socktap stations exchange SPATEM/MAPEM over UDP multicast,
   # the traffic is captured and decoded independently by Wireshark (tshark)
@@ -134,6 +134,42 @@ jobs:
           path: |
             capture.pcap
             decoded.txt
+
+  # project addition: reference vectors of the example intersection, written by the generator,
+  # decoded independently by pycrate and compared with the committed test_vectors
+  reference-vectors:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+      - run: sh scripts/overlay.sh
+      - run: docker build --build-arg UBUNTU_VERSION=noble --tag vanetza/docker-ci:noble ${{github.workspace}}/work/vanetza/tools/docker
+      - name: generate vectors
+        run: |
+          mkdir -p work/vectors && chmod 777 work/vectors
+          docker run --rm --entrypoint /bin/bash \
+            -v${{github.workspace}}/work/vanetza:/home/build-user/workspace:ro \
+            -v${{github.workspace}}/work/vectors:/vectors \
+            vanetza/docker-ci:noble -c '
+            set -e
+            cmake -G Ninja -S workspace -B build -DBUILD_SOCKTAP=ON -DBUILD_TESTS=OFF
+            cmake --build build --target reference-vectors
+            $(find build -name reference-vectors -type f -perm -u+x | head -n1) /vectors'
+          ls -l work/vectors
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reference-vectors
+          path: work/vectors
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: decode independently with pycrate
+        run: |
+          pip install --quiet pycrate==0.8.1
+          python scripts/check-vectors.py work/vectors external/vanetza/asn1 work/asn1-cache
+      - name: committed vectors are reproduced
+        run: diff -r work/vectors test_vectors/intersection_01
 
   # project addition: libFuzzer run on the SPATEM/MAPEM/SREM/SSEM decoders
   fuzz:
@@ -198,7 +234,7 @@ jobs:
               cmake -G Ninja -S /source -B /build -DBUILD_TESTS=ON -DBUILD_SOCKTAP=ON -DBUILD_FUZZ=ON \
                 -DGTest_BUILD_DIRECTORY_DOWNLOAD=ON
               cmake --build /build
-              ctest --test-dir /build -R "SpatemMapemAsn1|SpatFunctions|MapFunctions|FixedTimePlan|PriorityFunctions|PriorityRequestTable|MapSpatValidation" --output-on-failure'
+              ctest --test-dir /build -R "SpatemMapemAsn1|SpatFunctions|MapFunctions|FixedTimePlan|PriorityFunctions|PriorityRequestTable|MapSpatValidation|ReferenceVectors" --output-on-failure'
             echo "::endgroup::"
           done
 
