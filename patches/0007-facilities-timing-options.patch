@@ -1,0 +1,235 @@
+diff --git a/vanetza/facilities/fixed_time_plan.cpp b/vanetza/facilities/fixed_time_plan.cpp
+index b87d602..8baa2ad 100644
+--- a/vanetza/facilities/fixed_time_plan.cpp
++++ b/vanetza/facilities/fixed_time_plan.cpp
+@@ -632,7 +632,7 @@ void FixedTimePlan::fill(SPAT& spat, long intersection_id, long revision, Clock:
+             if (events == 0 && span.phase_state != sg.movement_allowed_state) {
+                 timing.next = next_movement(sg, now);
+             }
+-            set_timing(add_event(movement, span.phase_state), timing, now);
++            set_timing(add_event(movement, span.phase_state), timing, now, m_config.timing);
+ 
+             const bool phase = span.phase_state == sg.movement_allowed_state ||
+                 span.phase_state == MovementPhaseState_stop_And_Remain;
+diff --git a/vanetza/facilities/fixed_time_plan.hpp b/vanetza/facilities/fixed_time_plan.hpp
+index 5c9aa37..21d122d 100644
+--- a/vanetza/facilities/fixed_time_plan.hpp
++++ b/vanetza/facilities/fixed_time_plan.hpp
+@@ -2,6 +2,7 @@
+ #define FIXED_TIME_PLAN_HPP_Q7CMV4TB
+ 
+ #include <vanetza/common/clock.hpp>
++#include <vanetza/facilities/spat_functions.hpp>
+ #include <vanetza/units/length.hpp>
+ #include <boost/optional/optional.hpp>
+ #include <array>
+@@ -83,6 +84,7 @@ struct ControllerConfig
+     std::vector<PlanConfig> plans; /**< all plans */
+     std::array<std::vector<ScheduleEntry>, 7> week; /**< day programs, Monday first */
+     Clock::duration utc_offset; /**< local time minus UTC */
++    TimingOptions timing; /**< encoding of movement event timing, e.g. always_max_end for C-Roads */
+ };
+ 
+ /** One signal state of a group within a cycle */
+diff --git a/vanetza/facilities/spat_functions.cpp b/vanetza/facilities/spat_functions.cpp
+index c3b0308..d460d5a 100644
+--- a/vanetza/facilities/spat_functions.cpp
++++ b/vanetza/facilities/spat_functions.cpp
+@@ -154,6 +154,12 @@ MovementEvent& add_event(MovementState& movement, long phase_state)
+ }
+ 
+ void set_timing(MovementEvent& event, const MovementTiming& timing, const Clock::time_point& timestamp)
++{
++    set_timing(event, timing, timestamp, TimingOptions());
++}
++
++void set_timing(MovementEvent& event, const MovementTiming& timing, const Clock::time_point& timestamp,
++        const TimingOptions& options)
+ {
+     const Clock::time_point window_begin = minute_begin(timestamp);
+     const Clock::time_point window_end = window_begin + std::chrono::hours(1);
+@@ -164,6 +170,9 @@ void set_timing(MovementEvent& event, const MovementTiming& timing, const Clock:
+     if (timing.likely && !timing.confidence) {
+         throw std::invalid_argument("likely time without confidence");
+     }
++    if ((timing.max_end && *timing.max_end < timing.min_end) || (timing.likely && *timing.likely < timing.min_end)) {
++        throw std::invalid_argument("latest or likely end before the minimum end");
++    }
+ 
+     ASN_STRUCT_FREE(asn_DEF_TimeChangeDetails, event.timing);
+     event.timing = nullptr;
+@@ -174,6 +183,8 @@ void set_timing(MovementEvent& event, const MovementTiming& timing, const Clock:
+     }
+     if (timing.max_end && representable(ceil_to_tenth(*timing.max_end))) {
+         *allocate_optional(details->maxEndTime) = time_mark(ceil_to_tenth(*timing.max_end));
++    } else if (options.always_max_end) {
++        *allocate_optional(details->maxEndTime) = cTimeMarkOutOfRange; // unknown or beyond the window
+     }
+     if (timing.likely && representable(*timing.likely)) {
+         *allocate_optional(details->likelyTime) = time_mark(*timing.likely);
+diff --git a/vanetza/facilities/spat_functions.hpp b/vanetza/facilities/spat_functions.hpp
+index 3e2ee9b..5991d08 100644
+--- a/vanetza/facilities/spat_functions.hpp
++++ b/vanetza/facilities/spat_functions.hpp
+@@ -148,11 +148,34 @@ MovementEvent& add_event(MovementState& movement, long phase_state);
+  * \param event movement event (destination)
+  * \param timing absolute timing
+  * \param timestamp time of the intersection state, see set_timestamp()
+- * \throw std::invalid_argument if the minimum end time lies before the timestamp's minute
+- * or a likely time comes without confidence
++ * \throw std::invalid_argument if the minimum end time lies before the timestamp's minute,
++ * a likely time comes without confidence or the latest or likely end lies before the minimum end
+  */
+ void set_timing(MovementEvent& event, const MovementTiming& timing, const Clock::time_point& timestamp);
+ 
++/**
++ * Options for encoding the timing of movement events
++ */
++struct TimingOptions
++{
++    /**
++     * Always send maxEndTime: an unknown latest end or one beyond the TimeMark window is
++     * encoded as cTimeMarkOutOfRange (C2C-CC RS 2077 RS_ARSM_59). maxEndTime is mandatory in
++     * the C-Roads profile, optional for fixed-time operation in C2C-CC RS 2077 (RS_ARSM_57).
++     */
++    bool always_max_end = false;
++};
++
++/**
++ * Set timing of a movement event with encoding options, see set_timing() above
++ * \param event movement event (destination)
++ * \param timing absolute timing
++ * \param timestamp time of the intersection state, see set_timestamp()
++ * \param options encoding options
++ */
++void set_timing(MovementEvent& event, const MovementTiming& timing, const Clock::time_point& timestamp,
++        const TimingOptions& options);
++
+ } // namespace facilities
+ } // namespace vanetza
+ 
+diff --git a/vanetza/facilities/tests/fixed_time_plan.cpp b/vanetza/facilities/tests/fixed_time_plan.cpp
+index 2409ae8..3654e91 100644
+--- a/vanetza/facilities/tests/fixed_time_plan.cpp
++++ b/vanetza/facilities/tests/fixed_time_plan.cpp
+@@ -531,3 +531,24 @@ TEST(FixedTimePlan, rejects_times_longer_than_a_day)
+     config.utc_offset = hours(25);
+     EXPECT_THROW(FixedTimePlan { config }, std::invalid_argument);
+ }
++
++TEST(FixedTimePlan, always_max_end_for_states_without_known_end)
++{
++    ControllerConfig config = two_stage_config();
++    config.groups.push_back(make_group(10, SignalGroupKind::Traffic)); // in no stage, always red
++    config.timing.always_max_end = true;
++    const FixedTimePlan controller(config);
++
++    asn1::Spatem spatem;
++    controller.fill(spatem->spat, 7, 3, Clock::at("2026-10-05 06:30:00"));
++    const IntersectionState_t* intersection = spatem->spat.intersections.list.array[0];
++    const MovementEvent_t* g10 = intersection->states.list.array[9]->state_time_speed.list.array[0];
++    EXPECT_EQ(cTimeMarkOutOfRange, g10->timing->minEndTime);
++    ASSERT_NE(nullptr, g10->timing->maxEndTime);
++    EXPECT_EQ(cTimeMarkOutOfRange, *g10->timing->maxEndTime);
++
++    // known ends stay equal (RS_ARSM_61)
++    const MovementEvent_t* g1 = intersection->states.list.array[0]->state_time_speed.list.array[0];
++    ASSERT_NE(nullptr, g1->timing->maxEndTime);
++    EXPECT_EQ(g1->timing->minEndTime, *g1->timing->maxEndTime);
++}
+diff --git a/vanetza/facilities/tests/spat_functions.cpp b/vanetza/facilities/tests/spat_functions.cpp
+index c17fe1e..00ef32e 100644
+--- a/vanetza/facilities/tests/spat_functions.cpp
++++ b/vanetza/facilities/tests/spat_functions.cpp
+@@ -216,6 +216,91 @@ TEST(SpatFunctions, timing_beyond_one_hour)
+     EXPECT_EQ(35999, *event.timing->nextTime);
+ }
+ 
++TEST(SpatFunctions, always_max_end_option)
++{
++    asn1::Spatem spatem;
++    MovementEvent& event = add_event(add_movement(add_intersection_state(spatem->spat, 1, 0), 1),
++        MovementPhaseState_stop_And_Remain);
++
++    const auto now = Clock::at("2026-10-04 12:00:30.000");
++    TimingOptions options;
++    options.always_max_end = true;
++
++    // unknown latest end (C2C-CC RS 2077 RS_ARSM_59)
++    MovementTiming timing;
++    timing.min_end = now + std::chrono::seconds(5);
++    set_timing(event, timing, now, options);
++    ASSERT_NE(nullptr, event.timing->maxEndTime);
++    EXPECT_EQ(cTimeMarkOutOfRange, *event.timing->maxEndTime);
++
++    // latest end beyond the TimeMark window
++    timing.max_end = now + std::chrono::hours(2);
++    set_timing(event, timing, now, options);
++    ASSERT_NE(nullptr, event.timing->maxEndTime);
++    EXPECT_EQ(cTimeMarkOutOfRange, *event.timing->maxEndTime);
++
++    // representable latest end is encoded as usual
++    timing.max_end = now + std::chrono::seconds(10);
++    set_timing(event, timing, now, options);
++    ASSERT_NE(nullptr, event.timing->maxEndTime);
++    EXPECT_EQ(400, *event.timing->maxEndTime); // 12:00:40.0
++
++    // default: omitted when unknown
++    timing.max_end = boost::none;
++    set_timing(event, timing, now);
++    EXPECT_EQ(nullptr, event.timing->maxEndTime);
++}
++
++TEST(SpatFunctions, always_max_end_at_window_end)
++{
++    asn1::Spatem spatem;
++    MovementEvent& event = add_event(add_movement(add_intersection_state(spatem->spat, 1, 0), 1),
++        MovementPhaseState_stop_And_Remain);
++
++    // TimeMarks resolve from 12:00:00.0 to 12:59:59.9
++    const auto now = Clock::at("2026-10-04 12:00:30.000");
++    TimingOptions options;
++    options.always_max_end = true;
++    MovementTiming timing;
++    timing.min_end = now + std::chrono::seconds(5);
++
++    timing.max_end = Clock::at("2026-10-04 12:59:59.900");
++    set_timing(event, timing, now, options);
++    ASSERT_NE(nullptr, event.timing->maxEndTime);
++    EXPECT_EQ(35999, *event.timing->maxEndTime);
++
++    // rounded up across the window end
++    timing.max_end = Clock::at("2026-10-04 12:59:59.950");
++    set_timing(event, timing, now, options);
++    ASSERT_NE(nullptr, event.timing->maxEndTime);
++    EXPECT_EQ(cTimeMarkOutOfRange, *event.timing->maxEndTime);
++
++    set_timing(event, timing, now);
++    EXPECT_EQ(nullptr, event.timing->maxEndTime);
++}
++
++TEST(SpatFunctions, end_before_minimum_end_is_rejected)
++{
++    asn1::Spatem spatem;
++    MovementEvent& event = add_event(add_movement(add_intersection_state(spatem->spat, 1, 0), 1),
++        MovementPhaseState_stop_And_Remain);
++
++    const auto now = Clock::at("2026-10-04 12:00:30.000");
++    TimingOptions options;
++    options.always_max_end = true;
++    MovementTiming timing;
++    timing.min_end = now + std::chrono::seconds(5);
++    timing.max_end = Clock::at("2026-10-04 11:59:59.000");
++    EXPECT_THROW(set_timing(event, timing, now, options), std::invalid_argument);
++    EXPECT_THROW(set_timing(event, timing, now), std::invalid_argument);
++    EXPECT_EQ(nullptr, event.timing); // previous timing untouched
++
++    timing.max_end = boost::none;
++    timing.likely = now + std::chrono::seconds(4);
++    timing.confidence = 15;
++    EXPECT_THROW(set_timing(event, timing, now), std::invalid_argument);
++}
++
+ TEST(SpatFunctions, set_timing_replaces_previous_timing)
+ {
+     asn1::Spatem spatem;

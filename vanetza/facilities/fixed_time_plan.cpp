@@ -632,7 +632,7 @@ void FixedTimePlan::fill(SPAT& spat, long intersection_id, long revision, Clock:
             if (events == 0 && span.phase_state != sg.movement_allowed_state) {
                 timing.next = next_movement(sg, now);
             }
-            set_timing(add_event(movement, span.phase_state), timing, now, m_config.timing);
+            set_timing(add_event(movement, span.phase_state), timing, now);
 
             const bool phase = span.phase_state == sg.movement_allowed_state ||
                 span.phase_state == MovementPhaseState_stop_And_Remain;

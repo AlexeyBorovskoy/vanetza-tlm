@@ -216,41 +216,6 @@ TEST(SpatFunctions, timing_beyond_one_hour)
     EXPECT_EQ(35999, *event.timing->nextTime);
 }
 
-TEST(SpatFunctions, always_max_end_option)
-{
-    asn1::Spatem spatem;
-    MovementEvent& event = add_event(add_movement(add_intersection_state(spatem->spat, 1, 0), 1),
-        MovementPhaseState_stop_And_Remain);
-
-    const auto now = Clock::at("2026-10-04 12:00:30.000");
-    TimingOptions options;
-    options.always_max_end = true;
-
-    // unknown latest end (C2C-CC RS 2077 RS_ARSM_59)
-    MovementTiming timing;
-    timing.min_end = now + std::chrono::seconds(5);
-    set_timing(event, timing, now, options);
-    ASSERT_NE(nullptr, event.timing->maxEndTime);
-    EXPECT_EQ(cTimeMarkOutOfRange, *event.timing->maxEndTime);
-
-    // latest end beyond the TimeMark window
-    timing.max_end = now + std::chrono::hours(2);
-    set_timing(event, timing, now, options);
-    ASSERT_NE(nullptr, event.timing->maxEndTime);
-    EXPECT_EQ(cTimeMarkOutOfRange, *event.timing->maxEndTime);
-
-    // representable latest end is encoded as usual
-    timing.max_end = now + std::chrono::seconds(10);
-    set_timing(event, timing, now, options);
-    ASSERT_NE(nullptr, event.timing->maxEndTime);
-    EXPECT_EQ(400, *event.timing->maxEndTime); // 12:00:40.0
-
-    // default: omitted when unknown
-    timing.max_end = boost::none;
-    set_timing(event, timing, now);
-    EXPECT_EQ(nullptr, event.timing->maxEndTime);
-}
-
 TEST(SpatFunctions, set_timing_replaces_previous_timing)
 {
     asn1::Spatem spatem;

@@ -1,7 +1,7 @@
 #!/bin/sh
 # Split the overlay into the upstream pull request series, in submission order:
 #   1. facilities helpers, 2. fuzzing, 3. fixed-time plan model,
-#   4. socktap applications and docs, 5. MAPEM/SPATEM validation.
+#   4. socktap applications and docs, 5. MAPEM/SPATEM validation, 6. timing options.
 # The SPATEM/MAPEM asn1 tests are part of Vanetza since riebl/vanetza#328.
 # Result: work/pr/*.patch (git format-patch against the pinned Vanetza commit) and work/pr-repo.
 # The script fails if the series does not reproduce the overlay tree exactly.
@@ -103,6 +103,15 @@ normative text are warnings only." \
     vanetza/facilities/validation.hpp vanetza/facilities/validation.cpp \
     vanetza/facilities/map_spat_validation.hpp vanetza/facilities/map_spat_validation.cpp \
     vanetza/facilities/tests/map_spat_validation.cpp
+
+pr "facilities: optionally always send maxEndTime
+
+TimingOptions::always_max_end encodes an unknown latest end, or one
+beyond the TimeMark window, as 36000 (C2C-CC RS 2077 RS_ARSM_59).
+maxEndTime is mandatory in the C-Roads profile and optional for
+fixed-time operation in C2C-CC RS 2077; the default is unchanged.
+set_timing() rejects a latest or likely end before the minimum end." \
+    0007-facilities-timing-options.patch --
 
 git -C "$repo" format-patch --quiet -o "$out" "$base"
 
