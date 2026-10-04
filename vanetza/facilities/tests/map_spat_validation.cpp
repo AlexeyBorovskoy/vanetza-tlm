@@ -130,14 +130,20 @@ IntersectionGeometry& build_intersection(asn1::Mapem& mapem, long id = intersect
     return intersection;
 }
 
+// one ingress lane without connections, the least an ASN.1-valid geometry needs (LaneList SIZE(1..255))
+void add_ingress_lane(IntersectionGeometry& intersection)
+{
+    GenericLane& lane = add_vehicle_lane(intersection, 1, TravelDirection::Ingress, 1);
+    add_node(lane, 0.0 * meter, -20.0 * meter);
+    add_node(lane, 0.0 * meter, -10.0 * meter);
+}
+
 // intersection with one ingress lane (no connections), otherwise ASN.1-valid and issue-free;
 // a minimal base for tests that only care about one unrelated deviation
 IntersectionGeometry& build_single_lane_intersection(asn1::Mapem& mapem)
 {
     IntersectionGeometry& intersection = build_intersection(mapem);
-    GenericLane& lane = add_vehicle_lane(intersection, 1, TravelDirection::Ingress, 1);
-    add_node(lane, 0.0 * meter, -20.0 * meter);
-    add_node(lane, 0.0 * meter, -10.0 * meter);
+    add_ingress_lane(intersection);
     return intersection;
 }
 
@@ -619,8 +625,9 @@ TEST(MapSpatValidation, crosswalk_self_loop_is_warning_not_error_in_every_profil
 TEST(MapSpatValidation, rs_arsm_11_missing_region_is_profile_only)
 {
     asn1::Mapem mapem;
-    add_intersection_geometry(mapem->map, intersection_id, intersection_revision,
-        59.0 * units::degree, 30.0 * units::degree, 3.5 * meter); // region left unset
+    IntersectionGeometry& intersection = add_intersection_geometry(mapem->map, intersection_id,
+        intersection_revision, 59.0 * units::degree, 30.0 * units::degree, 3.5 * meter); // region left unset
+    add_ingress_lane(intersection);
 
     EXPECT_EQ(no_issues, rule_list(validate_map(mapem->map, ValidationProfile::Standard)));
     EXPECT_EQ(std::vector<std::string>{"RS_ARSM_11"}, rule_list(validate_map(mapem->map, ValidationProfile::Combined)));
@@ -629,8 +636,8 @@ TEST(MapSpatValidation, rs_arsm_11_missing_region_is_profile_only)
 TEST(MapSpatValidation, rs_arsm_12_duplicate_reference_id_reports_error)
 {
     asn1::Mapem mapem;
-    build_intersection(mapem, 9, 1);
-    build_intersection(mapem, 9, 1); // same id and region
+    add_ingress_lane(build_intersection(mapem, 9, 1));
+    add_ingress_lane(build_intersection(mapem, 9, 1)); // same id and region
 
     EXPECT_EQ(no_issues, rule_list(validate_map(mapem->map, ValidationProfile::Standard)));
     EXPECT_EQ(std::vector<std::string>{"RS_ARSM_12"}, rule_list(validate_map(mapem->map, ValidationProfile::Car2Car)));
@@ -639,7 +646,7 @@ TEST(MapSpatValidation, rs_arsm_12_duplicate_reference_id_reports_error)
 TEST(MapSpatValidation, rs_arsm_14_missing_lane_width_is_profile_only)
 {
     asn1::Mapem mapem;
-    IntersectionGeometry& intersection = build_intersection(mapem);
+    IntersectionGeometry& intersection = build_single_lane_intersection(mapem);
     remove_optional(intersection.laneWidth);
 
     EXPECT_EQ(no_issues, rule_list(validate_map(mapem->map, ValidationProfile::Standard)));
@@ -840,11 +847,12 @@ TEST(MapSpatValidation, rs_arsm_117_lane_level_maneuvers_is_profile_only_error)
     GenericLane& lane = add_vehicle_lane(intersection, 1, TravelDirection::Ingress, 1);
     add_node(lane, 0.0 * meter, -10.0 * meter);
     add_node(lane, 0.0 * meter, -5.0 * meter);
+    // AllowedManeuvers ::= BIT STRING (SIZE(12))
     lane.maneuvers = asn1::allocate<AllowedManeuvers_t>();
-    lane.maneuvers->buf = static_cast<uint8_t*>(asn1::allocate(1));
-    lane.maneuvers->size = 1;
+    lane.maneuvers->buf = static_cast<uint8_t*>(asn1::allocate(2));
+    lane.maneuvers->size = 2;
     lane.maneuvers->buf[0] = 0x80 >> AllowedManeuvers_maneuverStraightAllowed;
-    lane.maneuvers->bits_unused = 0;
+    lane.maneuvers->bits_unused = 4;
 
     EXPECT_EQ(no_issues, rule_list(validate_map(mapem->map, ValidationProfile::Standard)));
     EXPECT_EQ(std::vector<std::string>{"RS_ARSM_117"}, rule_list(validate_map(mapem->map, ValidationProfile::Combined)));
