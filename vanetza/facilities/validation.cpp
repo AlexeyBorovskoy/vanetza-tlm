@@ -114,14 +114,15 @@ private:
 
     void check_size(const asn_per_constraint_t& size, int count, const std::string& path)
     {
-        if (size.flags & APC_EXTENSIBLE) {
+        // the flags enumeration is nested in asn_per_constraint_s when compiled as C++
+        if (size.flags & asn_per_constraint_t::APC_EXTENSIBLE) {
             return; // sizes beyond the root are encodable
         }
-        const bool below = (size.flags & (APC_CONSTRAINED | APC_SEMI_CONSTRAINED)) && count < size.lower_bound;
-        const bool above = (size.flags & APC_CONSTRAINED) && count > size.upper_bound;
-        if (below || above) {
+        const bool bounded = size.flags & asn_per_constraint_t::APC_CONSTRAINED;
+        const bool lower_bounded = bounded || (size.flags & asn_per_constraint_t::APC_SEMI_CONSTRAINED);
+        if ((lower_bounded && count < size.lower_bound) || (bounded && count > size.upper_bound)) {
             fail(path, std::to_string(count) + " elements, SIZE(" + std::to_string(size.lower_bound) + ".." +
-                ((size.flags & APC_CONSTRAINED) ? std::to_string(size.upper_bound) : std::string("MAX")) + ")");
+                (bounded ? std::to_string(size.upper_bound) : std::string("MAX")) + ")");
         }
     }
 
