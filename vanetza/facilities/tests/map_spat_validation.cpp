@@ -540,13 +540,22 @@ TEST(MapSpatValidation, rs_arsm_57_max_end_time_with_traffic_dependent_operation
     state.status.buf[bit / 8] |= 0x80 >> (bit % 8);
 
     MovementState& movement = add_movement(state, 1);
-    add_known_event(movement, MovementPhaseState_permissive_Movement_Allowed, reference_time, std::chrono::seconds(10));
+    MovementEvent& event = add_known_event(movement, MovementPhaseState_permissive_Movement_Allowed, reference_time,
+        std::chrono::seconds(10));
     add_known_event(movement, MovementPhaseState_stop_And_Remain, reference_time, std::chrono::seconds(30));
-    // maxEndTime is present on both events via add_known_event
+    ASN_STRUCT_FREE(asn_DEF_TimeMark, event.timing->maxEndTime);
+    event.timing->maxEndTime = nullptr;
 
     EXPECT_TRUE(has_issue(validate_spat(spatem->spat, ValidationProfile::Car2Car), "RS_ARSM_57", Severity::Error));
+    // under Combined the C-Roads rule makes maxEndTime mandatory regardless of the operation mode
     EXPECT_FALSE(has_issue(validate_spat(spatem->spat, ValidationProfile::Combined), "RS_ARSM_57", Severity::Error));
+    EXPECT_TRUE(has_issue(validate_spat(spatem->spat, ValidationProfile::Combined), "maxEndTime", Severity::Error));
     EXPECT_FALSE(has_issue(validate_spat(spatem->spat, ValidationProfile::Standard), "RS_ARSM_57", Severity::Error));
+
+    // with maxEndTime present the requirement is met
+    event.timing->maxEndTime = asn1::allocate<TimeMark_t>();
+    *event.timing->maxEndTime = event.timing->minEndTime;
+    EXPECT_FALSE(has_issue(validate_spat(spatem->spat, ValidationProfile::Car2Car), "RS_ARSM_57", Severity::Error));
 }
 
 TEST(MapSpatValidation, rs_arsm_60_unknown_max_end_time_is_profile_only_error)
