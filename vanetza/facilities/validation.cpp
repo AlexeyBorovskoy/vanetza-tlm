@@ -23,7 +23,7 @@ namespace facilities
 namespace
 {
 
-// bounds the recursion if a malformed structure refers to itself
+// bounds the walk through recursive types (e.g. IEEE 1609.2 data); MapData and SPAT nest about 20 levels
 const int max_nesting = 64;
 
 class StructureWalk

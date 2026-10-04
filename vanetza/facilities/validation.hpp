@@ -73,9 +73,12 @@ std::ostream& operator<<(std::ostream&, const ValidationIssue&);
  * mandatory elements, a CHOICE or open type without valid alternative, an inconsistent
  * SEQUENCE OF or SET OF (negative count, count above the allocation, elements without array),
  * empty list elements, list sizes outside the PER-visible SIZE constraint and strings or
- * INTEGERs with a size but without buffer. asn1c constraint checking does not cover these
- * SIZE constraints and may dereference such malformed structures, so it only runs if the
- * walk found nothing. Every issue has rule "ASN.1".
+ * INTEGERs with a size but without buffer. asn1c constraint checking does not check the SIZE
+ * of named SEQUENCE OF types (only inline SIZE constraints become member constraints) and reads
+ * string buffers without null check, so it only runs if the walk found nothing. The lower bound
+ * of SIZE(n..MAX) is checked as X.680 defines it, although the asn1c UPER encoder accepts fewer
+ * elements; nesting deeper than 64 levels, possible for recursive types only, is reported.
+ * Every issue has rule "ASN.1".
  *
  * \param type asn1c descriptor of the structure, e.g. asn_DEF_MapData
  * \param structure structure to check

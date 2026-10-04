@@ -21,6 +21,7 @@
 #include <vanetza/asn1/its/NodeAttributeXYList.h>
 #include <vanetza/asn1/its/NodeListXY.h>
 #include <vanetza/asn1/its/NodeXY.h>
+#include <vanetza/asn1/its/RegionalExtension.h>
 #include <vanetza/asn1/its/RoadRegulatorID.h>
 #include <vanetza/asn1/its/TimeChangeDetails.h>
 #include <vanetza/asn1/its/TimeMark.h>
@@ -133,16 +134,17 @@ bool has_rule(const ValidationResult& result, const std::string& rule)
         [&rule](const ValidationIssue& issue) { return issue.rule == rule; });
 }
 
+bool has_identifier(const ValidationResult& result, const std::string& part)
+{
+    return std::any_of(result.issues().begin(), result.issues().end(),
+        [&part](const ValidationIssue& issue) { return issue.rule.find(part) != std::string::npos; });
+}
+
 // true if any issue carries a C2C-CC (RS_ARSM_*) or C-Roads identifier; must never happen under
 // ValidationProfile::Standard, which checks ETSI TS 103 301 / ISO TS 19091 only
 bool has_profile_specific_identifier(const ValidationResult& result)
 {
-    for (const ValidationIssue& issue : result.issues()) {
-        if (issue.rule.find("RS_ARSM_") == 0 || issue.rule.find("C-Roads") != std::string::npos) {
-            return true;
-        }
-    }
-    return false;
+    return has_identifier(result, "RS_ARSM_") || has_identifier(result, "C-Roads");
 }
 
 const std::string geometry_path = "MapData.intersections[0]";
@@ -575,6 +577,25 @@ TEST(MapSpatValidation, character_string_without_buffer_is_reported_without_cras
     intersection.name->size = 3; // DescriptiveName ::= IA5String (SIZE(1..63)), no buffer
 
     EXPECT_EQ(Findings { error_at("ASN.1", geometry_path + ".name") }, findings(validate_map(mapem->map)));
+}
+
+TEST(MapSpatValidation, inline_list_size_is_checked)
+{
+    // MapData.regional SEQUENCE (SIZE(1..4)) OF RegionalExtension
+    asn1::Mapem mapem;
+    mapem->map.regional = asn1::allocate<MapData::MapData__regional>(); // no extension
+
+    EXPECT_EQ(Findings { error_at("ASN.1", "MapData.regional") }, findings(validate_map(mapem->map)));
+}
+
+TEST(MapSpatValidation, open_type_without_alternative_is_reported)
+{
+    asn1::Mapem mapem;
+    mapem->map.regional = asn1::allocate<MapData::MapData__regional>();
+    Reg_MapData_t* extension = asn1::allocate<Reg_MapData_t>(); // regExtValue: nothing selected
+    ASSERT_EQ(0, ASN_SEQUENCE_ADD(&mapem->map.regional->list, extension));
+
+    EXPECT_EQ(Findings { error_at("ASN.1", "MapData.regional[0].regExtValue") }, findings(validate_map(mapem->map)));
 }
 
 TEST(MapSpatValidation, inconsistent_lists_are_reported_without_crash)
@@ -1786,10 +1807,11 @@ TEST(MapSpatValidation, invalid_layer_id_does_not_relax_map_spat_checks)
 // Standard profile must never leak a Car2Car (RS_ARSM_*) or C-Roads identifier
 // =================================================================================================
 
-TEST(MapSpatValidation, standard_profile_never_reports_profile_specific_identifiers)
+TEST(MapSpatValidation, profiles_report_only_their_own_identifiers)
 {
-    // every scenario violates a profile rule, which Combined has to report and Standard must not;
-    // all of them are ASN.1-valid, otherwise the semantic checks would not even run
+    // every scenario violates a profile rule, which Combined has to report; Standard reports no
+    // profile identifier, Car2Car no C-Roads and CRoads no RS_ARSM_* identifier; all scenarios
+    // are ASN.1-valid, otherwise the semantic checks would not even run
     std::vector<ValidationResult (*)(ValidationProfile)> scenarios {
         // validate_map, RS_ARSM_*
         [](ValidationProfile profile) {
@@ -2058,9 +2080,13 @@ TEST(MapSpatValidation, standard_profile_never_reports_profile_specific_identifi
 
     for (std::size_t i = 0; i < scenarios.size(); ++i) {
         const ValidationResult standard = scenarios[i](ValidationProfile::Standard);
+        const ValidationResult car2car = scenarios[i](ValidationProfile::Car2Car);
+        const ValidationResult croads = scenarios[i](ValidationProfile::CRoads);
         const ValidationResult combined = scenarios[i](ValidationProfile::Combined);
         EXPECT_FALSE(has_rule(standard, "ASN.1")) << "scenario " << i << " is not ASN.1-valid";
-        EXPECT_FALSE(has_profile_specific_identifier(standard)) << "scenario " << i << " leaked a profile identifier";
+        EXPECT_FALSE(has_profile_specific_identifier(standard)) << "scenario " << i << ": profile rule in Standard";
+        EXPECT_FALSE(has_identifier(car2car, "C-Roads")) << "scenario " << i << ": C-Roads rule in Car2Car";
+        EXPECT_FALSE(has_identifier(croads, "RS_ARSM_")) << "scenario " << i << ": RS rule in CRoads";
         EXPECT_TRUE(has_profile_specific_identifier(combined)) << "scenario " << i << " violates no profile rule";
     }
 }
