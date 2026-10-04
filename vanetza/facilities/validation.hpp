@@ -6,6 +6,8 @@
 #include <string>
 #include <vector>
 
+struct asn_TYPE_descriptor_s;
+
 namespace vanetza
 {
 namespace facilities
@@ -63,6 +65,25 @@ private:
 
 /** Print an issue as "error <rule> <path>: <message>" */
 std::ostream& operator<<(std::ostream&, const ValidationIssue&);
+
+/**
+ * Check a structure against its ASN.1 type, the precondition of any semantic check.
+ *
+ * The structure is walked along its asn1c type description first. Reported are absent
+ * mandatory elements, a CHOICE or open type without valid alternative, an inconsistent
+ * SEQUENCE OF or SET OF (negative count, count above the allocation, elements without array),
+ * empty list elements, list sizes outside the PER-visible SIZE constraint and strings or
+ * INTEGERs with a size but without buffer. asn1c constraint checking does not cover these
+ * SIZE constraints and may dereference such malformed structures, so it only runs if the
+ * walk found nothing. Every issue has rule "ASN.1".
+ *
+ * \param type asn1c descriptor of the structure, e.g. asn_DEF_MapData
+ * \param structure structure to check
+ * \param path field path of the structure, prefix of the reported paths
+ * \param result receives the issues
+ * \return true if the structure is fit for semantic checks
+ */
+bool check_asn1(asn_TYPE_descriptor_s& type, const void* structure, const std::string& path, ValidationResult& result);
 
 } // namespace facilities
 } // namespace vanetza
