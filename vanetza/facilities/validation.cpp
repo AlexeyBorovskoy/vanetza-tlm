@@ -15,6 +15,11 @@ void ValidationResult::add(Severity severity, std::string rule, std::string path
 
 void ValidationResult::append(const ValidationResult& other)
 {
+    if (&other == this) {
+        const std::vector<ValidationIssue> copy = m_issues; // inserting a range of itself is undefined
+        m_issues.insert(m_issues.end(), copy.begin(), copy.end());
+        return;
+    }
     m_issues.insert(m_issues.end(), other.m_issues.begin(), other.m_issues.end());
 }
 
