@@ -37,7 +37,8 @@ reproduce the overlay.
 ## Status
 
 The series is proposed to the Vanetza maintainer and is not part of Vanetza. Further work
-beyond it, semantic validation of MAPEM and SPATEM, is in draft pull request #1.
+beyond it is in draft pull requests: semantic validation of MAPEM and SPATEM (#1) and reference
+vectors of the example intersection, decoded independently by pycrate (#2).
 
 ## Continuous integration
 
