@@ -1,0 +1,20 @@
+diff --git a/tools/socktap/CMakeLists.txt b/tools/socktap/CMakeLists.txt
+--- a/tools/socktap/CMakeLists.txt
++++ b/tools/socktap/CMakeLists.txt
+@@ -115,4 +115,8 @@
+     target_sources(socktap PRIVATE gps_position_provider.cpp)
+ endif()
+ 
++# reference vectors of the example intersection, see reference_vectors.hpp
++add_executable(reference-vectors fixed_time_intersection.cpp reference_vectors.cpp reference_vectors_main.cpp)
++target_link_libraries(reference-vectors PUBLIC vanetza)
++
+ add_test_subdirectory(tests)
+diff --git a/tools/socktap/tests/CMakeLists.txt b/tools/socktap/tests/CMakeLists.txt
+--- a/tools/socktap/tests/CMakeLists.txt
++++ b/tools/socktap/tests/CMakeLists.txt
+@@ -4,3 +4,4 @@
+     INCLUDE_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}/..
+     LINK_LIBRARIES vanetza)
+ add_gtest(PriorityRequestTable priority_request_table.cpp ../priority_request_table.cpp)
++add_gtest(ReferenceVectors reference_vectors.cpp ../reference_vectors.cpp ../fixed_time_intersection.cpp)

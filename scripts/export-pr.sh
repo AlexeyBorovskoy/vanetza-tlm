@@ -1,7 +1,8 @@
 #!/bin/sh
 # Split the overlay into the upstream pull request series, in submission order:
 #   1. facilities helpers, 2. fuzzing, 3. fixed-time plan model,
-#   4. socktap applications and docs, 5. MAPEM/SPATEM validation, 6. timing options.
+#   4. socktap applications and docs, 5. MAPEM/SPATEM validation, 6. timing options,
+#   7. reference vectors.
 # The SPATEM/MAPEM asn1 tests are part of Vanetza since riebl/vanetza#328.
 # Result: work/pr/*.patch (git format-patch against the pinned Vanetza commit) and work/pr-repo.
 # The script fails if the series does not reproduce the overlay tree exactly.
@@ -115,6 +116,16 @@ maxEndTime is mandatory in the C-Roads profile and optional for
 fixed-time operation in C2C-CC RS 2077; the default is unchanged.
 set_timing() rejects a latest or likely end before the minimum end." \
     0007-facilities-timing-options.patch --
+
+pr "tools: add reference vectors of the example intersection
+
+reference-vectors writes the MAPEM, SPATEMs at fixed instants, a SREM
+and the SSEM answering it for the socktap example intersection as UPER
+and XER files, for comparison with other implementations. A test pins
+their encoding and checks them with the MAPEM/SPATEM validation." \
+    0008-tools-socktap-reference-vectors.patch -- \
+    tools/socktap/reference_vectors.hpp tools/socktap/reference_vectors.cpp \
+    tools/socktap/reference_vectors_main.cpp tools/socktap/tests/reference_vectors.cpp
 
 git -C "$repo" format-patch --quiet -o "$out" "$base"
 
