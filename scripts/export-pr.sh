@@ -1,7 +1,7 @@
 #!/bin/sh
 # Split the overlay into the upstream pull request series, in submission order:
 #   1. facilities helpers, 2. fuzzing, 3. fixed-time plan model,
-#   4. socktap applications and docs.
+#   4. socktap applications and docs, 5. MAPEM/SPATEM validation, 6. timing options.
 # The SPATEM/MAPEM asn1 tests are part of Vanetza since riebl/vanetza#328.
 # Result: work/pr/*.patch (git format-patch against the pinned Vanetza commit) and work/pr-repo.
 # The script fails if the series does not reproduce the overlay tree exactly.
@@ -90,6 +90,31 @@ intersection driven by the fixed-time plan model." \
     tools/socktap/infrastructure_message.hpp \
     tools/socktap/priority_request_table.hpp tools/socktap/priority_request_table.cpp \
     tools/socktap/tests/CMakeLists.txt tools/socktap/tests/priority_request_table.cpp
+
+pr "facilities: validate MAPEM and SPATEM semantics
+
+Checks of MapData and SPAT beyond ASN.1 constraints, and of a SPAT
+against the MapData of its intersections: lane and signal group
+references, identifiers, timing order and the requirements of
+C2C-CC RS 2077 and C-Roads, selected by a validation profile. Every
+issue carries its rule, severity and field path; rules without
+normative text are warnings only. check_asn1() walks the asn1c
+structure along its type description before the asn1c constraint
+check, so SEQUENCE OF sizes it does not cover and malformed
+structures it would dereference are reported instead." \
+    0006-facilities-map-spat-validation.patch -- \
+    vanetza/facilities/validation.hpp vanetza/facilities/validation.cpp \
+    vanetza/facilities/map_spat_validation.hpp vanetza/facilities/map_spat_validation.cpp \
+    vanetza/facilities/tests/map_spat_validation.cpp
+
+pr "facilities: optionally always send maxEndTime
+
+TimingOptions::always_max_end encodes an unknown latest end, or one
+beyond the TimeMark window, as 36000 (C2C-CC RS 2077 RS_ARSM_59).
+maxEndTime is mandatory in the C-Roads profile and optional for
+fixed-time operation in C2C-CC RS 2077; the default is unchanged.
+set_timing() rejects a latest or likely end before the minimum end." \
+    0007-facilities-timing-options.patch --
 
 git -C "$repo" format-patch --quiet -o "$out" "$base"
 
