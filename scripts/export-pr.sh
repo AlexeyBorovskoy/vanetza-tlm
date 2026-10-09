@@ -1,8 +1,9 @@
 #!/bin/sh
 # Split the overlay into the upstream pull request series, in submission order:
-#   1. asn1 tests, 2. facilities helpers, 3. fuzzing,
-#   4. fixed-time plan model, 5. socktap applications and docs.
-# Result: work/pr/*.patch (git format-patch against the pinned Vanetza tag) and work/pr-repo.
+#   1. facilities helpers, 2. fuzzing, 3. fixed-time plan model,
+#   4. socktap applications and docs.
+# The SPATEM/MAPEM asn1 tests are part of Vanetza since riebl/vanetza#328.
+# Result: work/pr/*.patch (git format-patch against the pinned Vanetza commit) and work/pr-repo.
 # The script fails if the series does not reproduce the overlay tree exactly.
 set -eu
 
@@ -35,14 +36,6 @@ pr() {
     git -C "$repo" add -A
     git -C "$repo" commit --quiet -m "$message"
 }
-
-pr "asn1: add SPATEM and MAPEM round-trip and constraint tests
-
-Encode, decode, compare and validate SPATEM and MAPEM built with the
-existing asn1c wrappers (ETSI TS 103 301 with the ISO TS 19091 DSRC
-module) and check that PER size constraints are enforced on encoding." \
-    0001-asn1-register-spatem-mapem-tests.patch -- \
-    vanetza/asn1/tests/spatem_mapem.cpp
 
 pr "facilities: add SPaT, MAP and priority message helpers
 

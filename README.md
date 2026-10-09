@@ -4,10 +4,10 @@ Signalised intersection services for [Vanetza](https://github.com/riebl/vanetza)
 SPATEM and MAPEM (ETSI Traffic Light Maneuver and Road and Lane Topology services) and
 SREM/SSEM (Traffic Light Control service) on top of the existing ETSI TS 103 301 v2.1.1 codecs.
 
-Vanetza already ships `vanetza::asn1::Spatem`, `Mapem`, `Srem` and `Ssem`, the BTP ports and
-the ITS-AIDs, but no facility helpers, tests or example applications. This project adds:
+Vanetza already ships `vanetza::asn1::Spatem`, `Mapem`, `Srem` and `Ssem`, the BTP ports,
+the ITS-AIDs and, since riebl/vanetza#328 from this project, SPATEM/MAPEM round-trip and
+constraint tests, but no facility helpers or example applications. This project adds:
 
-- **tests:** UPER round trip, constraint violations and truncated messages for SPATEM/MAPEM,
 - **facilities:** SPaT time conversions (MinuteOfTheYear, DSecond, TimeMark with hour rollover
   and "unknown"), SPATEM/MAPEM/SREM/SSEM builders following the C2C-CC RS 2077 profile,
   a fixed-time signal plan model (stages, intergreen times, coordinated plans, weekly schedule)
@@ -24,19 +24,20 @@ patch series.
 ```sh
 git clone --recurse-submodules https://github.com/AlexeyBorovskoy/vanetza-tlm.git
 cd vanetza-tlm
-scripts/overlay.sh          # Vanetza v26.09 + this overlay -> work/vanetza
+scripts/overlay.sh          # Vanetza master (submodule) + this overlay -> work/vanetza
 cmake -S work/vanetza -B build -DBUILD_TESTS=ON -DBUILD_SOCKTAP=ON
 cmake --build build -j
 ctest --test-dir build --output-on-failure
 ```
 
-`scripts/export-pr.sh` writes the upstream series to `work/pr` (asn1 tests, message helpers,
-fuzzing, fixed-time plan model, socktap applications and docs) and fails if it does not
-reproduce the overlay.
+`scripts/export-pr.sh` writes the upstream series to `work/pr` (message helpers, fuzzing,
+fixed-time plan model, socktap applications and docs) and fails if it does not reproduce the
+overlay.
 
 ## Status
 
-The series is proposed to the Vanetza maintainer and is not part of Vanetza. Further work
+The SPATEM/MAPEM tests are part of Vanetza (riebl/vanetza#328); the SPaT time conversions are
+proposed in riebl/vanetza#330. The rest of the series is not part of Vanetza yet. Further work
 beyond it is in draft pull requests: semantic validation of MAPEM and SPATEM (#1) and reference
 vectors of the example intersection, decoded independently by pycrate (#2).
 
