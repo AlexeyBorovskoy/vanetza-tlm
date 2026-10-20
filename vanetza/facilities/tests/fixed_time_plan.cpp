@@ -324,7 +324,7 @@ TEST(FixedTimePlan, group_never_changing_has_no_end)
     ASSERT_EQ(1, events.list.count);
     EXPECT_EQ(red, events.list.array[0]->eventState);
     ASSERT_NE(nullptr, events.list.array[0]->timing);
-    EXPECT_EQ(cTimeMarkOutOfRange, events.list.array[0]->timing->minEndTime); // red in every plan
+    EXPECT_EQ(cTimeMarkOutOfRange.count(), events.list.array[0]->timing->minEndTime); // red in every plan
     EXPECT_EQ(nullptr, events.list.array[0]->timing->maxEndTime);
     EXPECT_EQ(nullptr, events.list.array[0]->timing->confidence);
 }
@@ -373,7 +373,7 @@ TEST(FixedTimePlan, plan_change_beyond_one_hour_is_out_of_range)
     const IntersectionState_t* intersection = spatem->spat.intersections.list.array[0];
     const MovementEvent_t* g10 = intersection->states.list.array[9]->state_time_speed.list.array[0];
     ASSERT_NE(nullptr, g10->timing);
-    EXPECT_EQ(cTimeMarkOutOfRange, g10->timing->minEndTime);
+    EXPECT_EQ(cTimeMarkOutOfRange.count(), g10->timing->minEndTime);
     EXPECT_EQ(nullptr, g10->timing->maxEndTime);
     EXPECT_EQ(nullptr, g10->timing->nextTime);
 }
@@ -433,7 +433,7 @@ TEST(FixedTimePlan, constant_state_without_plan_change_is_out_of_range)
     const MovementEvent_t* g10 = spatem->spat.intersections.list.array[0]->states.list.array[9]->state_time_speed.list.array[0];
     EXPECT_EQ(red, g10->eventState);
     ASSERT_NE(nullptr, g10->timing);
-    EXPECT_EQ(cTimeMarkOutOfRange, g10->timing->minEndTime);
+    EXPECT_EQ(cTimeMarkOutOfRange.count(), g10->timing->minEndTime);
 }
 
 TEST(FixedTimePlan, rejects_times_off_the_grid_and_invalid_schedules)

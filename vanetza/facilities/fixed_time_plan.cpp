@@ -600,7 +600,7 @@ void FixedTimePlan::fill(SPAT& spat, long intersection_id, long revision, Clock:
 {
     const boost::optional<Clock::time_point> plan_begin = last_plan_change(now);
     // TimeMarks are unambiguous for one hour from the begin of the current minute
-    const Clock::time_point horizon = now - std::chrono::milliseconds(dsecond(now)) -
+    const Clock::time_point horizon = now - dsecond(now) -
         now.time_since_epoch() % std::chrono::milliseconds(1) + std::chrono::hours(1);
 
     IntersectionState& intersection = add_intersection_state(spat, intersection_id, revision);

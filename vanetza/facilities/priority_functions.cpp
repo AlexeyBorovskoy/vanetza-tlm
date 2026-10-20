@@ -65,8 +65,8 @@ void set_requestor(SignalRequestMessage& message, std::uint32_t station_id, long
 
 void set_timestamp(SignalRequestMessage& message, const Clock::time_point& now)
 {
-    *allocate_optional(message.timeStamp) = minute_of_the_year(now);
-    message.second = dsecond(now);
+    *allocate_optional(message.timeStamp) = static_cast<long>(minute_of_the_year(now).count());
+    message.second = static_cast<long>(dsecond(now).count());
 }
 
 void add_request(SignalRequestMessage& message, const PriorityRequest& request)
@@ -81,8 +81,8 @@ void add_request(SignalRequestMessage& message, const PriorityRequest& request)
         set_lane(*allocate_optional(details.outBoundLane), *request.outbound_lane);
     }
     if (request.arrival) {
-        *allocate_optional(package->minute) = minute_of_the_year(*request.arrival);
-        *allocate_optional(package->second) = dsecond(*request.arrival);
+        *allocate_optional(package->minute) = static_cast<long>(minute_of_the_year(*request.arrival).count());
+        *allocate_optional(package->second) = static_cast<long>(dsecond(*request.arrival).count());
     }
     if (request.duration) {
         *allocate_optional(package->duration) = to_dsecond(*request.duration);
@@ -92,8 +92,8 @@ void add_request(SignalRequestMessage& message, const PriorityRequest& request)
 
 void set_timestamp(SignalStatusMessage& message, const Clock::time_point& now)
 {
-    *allocate_optional(message.timeStamp) = minute_of_the_year(now);
-    message.second = dsecond(now);
+    *allocate_optional(message.timeStamp) = static_cast<long>(minute_of_the_year(now).count());
+    message.second = static_cast<long>(dsecond(now).count());
 }
 
 SignalStatus& add_status(SignalStatusMessage& message, long intersection_id, long sequence_number)

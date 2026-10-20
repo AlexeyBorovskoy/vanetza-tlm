@@ -47,7 +47,7 @@ TEST(PriorityFunctions, build_srem)
 
     const SignalRequestMessage_t& srm = decoded->srm;
     ASSERT_NE(nullptr, srm.timeStamp);
-    EXPECT_EQ(minute_of_the_year(now), *srm.timeStamp);
+    EXPECT_EQ(minute_of_the_year(now).count(), *srm.timeStamp);
     EXPECT_EQ(30250, srm.second);
     EXPECT_EQ(VehicleID_PR_stationID, srm.requestor.id.present);
     EXPECT_EQ(4711u, srm.requestor.id.choice.stationID);
@@ -66,7 +66,7 @@ TEST(PriorityFunctions, build_srem)
     ASSERT_NE(nullptr, package.request.outBoundLane);
     EXPECT_EQ(10, package.request.outBoundLane->choice.lane);
     ASSERT_NE(nullptr, package.minute);
-    EXPECT_EQ(minute_of_the_year(now), *package.minute);
+    EXPECT_EQ(minute_of_the_year(now).count(), *package.minute);
     ASSERT_NE(nullptr, package.second);
     EXPECT_EQ(50250, *package.second); // 10:15:50.250
     ASSERT_NE(nullptr, package.duration);

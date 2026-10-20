@@ -3,6 +3,7 @@
 #   1. facilities helpers, 2. fuzzing, 3. fixed-time plan model,
 #   4. socktap applications and docs.
 # The SPATEM/MAPEM asn1 tests are part of Vanetza since riebl/vanetza#328.
+# The SPaT time conversions are part of Vanetza since riebl/vanetza#330.
 # Result: work/pr/*.patch (git format-patch against the pinned Vanetza commit) and work/pr-repo.
 # The script fails if the series does not reproduce the overlay tree exactly.
 set -eu
@@ -40,10 +41,11 @@ pr() {
 pr "facilities: add SPaT, MAP and priority message helpers
 
 Builders for IntersectionState, MovementState, IntersectionGeometry,
-lanes, nodes, connections, SignalRequest and SignalStatus, plus the
-SPaT time base: MinuteOfTheYear, DSecond and TimeMark in UTC with the
-hour rule of C2C-CC RS 2077 RS_ARSM_54 (ETSI TS 103 301,
-ISO TS 19091)." \
+lanes, nodes, connections, SignalRequest and SignalStatus, plus
+MsgCount (next_msg_count) and MovementTiming with set_timing()
+(TimeChangeDetails with the TimeMark window of C2C-CC RS 2077
+RS_ARSM_54), on top of the SPaT time conversions of Vanetza
+(ETSI TS 103 301, ISO TS 19091)." \
     0002-facilities-add-spat-map-priority-functions.patch -- \
     vanetza/facilities/detail/asn1_list.tpp \
     vanetza/facilities/spat_functions.hpp vanetza/facilities/spat_functions.cpp \

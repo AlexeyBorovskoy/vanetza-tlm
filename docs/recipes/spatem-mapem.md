@@ -34,11 +34,14 @@ The helper functions in `vanetza/facilities/spat_functions.hpp` and `vanetza/fac
     ByteBuffer buffer = spatem.encode(); // UPER
 
 `MovementTiming` takes absolute `Clock::time_point` values.
-They are converted to *TimeMark*, i.e. tenths of a second within the current UTC hour.
+They are converted to *TimeMark*, a `std::chrono::duration` in tenths of a second within the current UTC hour.
 Lower bounds are truncated and `max_end` is rounded up, so the encoded interval always contains the given interval.
 A TimeMark is unambiguous only for one hour from the begin of the timestamp's minute: a later minimum end time is sent as `cTimeMarkOutOfRange` (36000, C2C-CC RS 2077), later optional times are omitted.
 Each call of `set_timing()` replaces the previous timing of the event.
 `time_mark_to_time_point()` resolves a received TimeMark following C2C-CC RS 2077 (RS_ARSM_54): the mark belongs to the hour of the reference time, or to the next hour if it lies before the reference minute, so forecasts crossing the hour boundary resolve correctly.
+
+The time conversions are part of Vanetza since riebl/vanetza#330: `minute_of_the_year()` returns `std::chrono::minutes`, `dsecond()` returns `std::chrono::milliseconds` and `time_mark()` returns `TimeMark`.
+The ASN.1 fields are plain integers, so set them with `.count()`, e.g. `static_cast<long>(minute_of_the_year(now).count())` or `static_cast<long>(time_mark(now).count())`.
 
 ## Intersection topology
 
