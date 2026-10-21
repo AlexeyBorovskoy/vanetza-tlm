@@ -1,5 +1,5 @@
 diff --git a/vanetza/facilities/fixed_time_plan.cpp b/vanetza/facilities/fixed_time_plan.cpp
-index b87d602..8baa2ad 100644
+index fe9e0eb..9913127 100644
 --- a/vanetza/facilities/fixed_time_plan.cpp
 +++ b/vanetza/facilities/fixed_time_plan.cpp
 @@ -632,7 +632,7 @@ void FixedTimePlan::fill(SPAT& spat, long intersection_id, long revision, Clock:
@@ -32,10 +32,10 @@ index 5c9aa37..21d122d 100644
  
  /** One signal state of a group within a cycle */
 diff --git a/vanetza/facilities/spat_functions.cpp b/vanetza/facilities/spat_functions.cpp
-index c3b0308..d460d5a 100644
+index 6638f4a..f29c41f 100644
 --- a/vanetza/facilities/spat_functions.cpp
 +++ b/vanetza/facilities/spat_functions.cpp
-@@ -154,6 +154,12 @@ MovementEvent& add_event(MovementState& movement, long phase_state)
+@@ -157,6 +157,12 @@ MovementEvent& add_event(MovementState& movement, long phase_state)
  }
  
  void set_timing(MovementEvent& event, const MovementTiming& timing, const Clock::time_point& timestamp)
@@ -48,7 +48,7 @@ index c3b0308..d460d5a 100644
  {
      const Clock::time_point window_begin = minute_begin(timestamp);
      const Clock::time_point window_end = window_begin + std::chrono::hours(1);
-@@ -164,6 +170,9 @@ void set_timing(MovementEvent& event, const MovementTiming& timing, const Clock:
+@@ -167,6 +173,9 @@ void set_timing(MovementEvent& event, const MovementTiming& timing, const Clock:
      if (timing.likely && !timing.confidence) {
          throw std::invalid_argument("likely time without confidence");
      }
@@ -58,20 +58,20 @@ index c3b0308..d460d5a 100644
  
      ASN_STRUCT_FREE(asn_DEF_TimeChangeDetails, event.timing);
      event.timing = nullptr;
-@@ -174,6 +183,8 @@ void set_timing(MovementEvent& event, const MovementTiming& timing, const Clock:
+@@ -177,6 +186,8 @@ void set_timing(MovementEvent& event, const MovementTiming& timing, const Clock:
      }
      if (timing.max_end && representable(ceil_to_tenth(*timing.max_end))) {
-         *allocate_optional(details->maxEndTime) = time_mark(ceil_to_tenth(*timing.max_end));
+         *allocate_optional(details->maxEndTime) = time_mark(ceil_to_tenth(*timing.max_end)).count();
 +    } else if (options.always_max_end) {
-+        *allocate_optional(details->maxEndTime) = cTimeMarkOutOfRange; // unknown or beyond the window
++        *allocate_optional(details->maxEndTime) = cTimeMarkOutOfRange.count(); // unknown or beyond the window
      }
      if (timing.likely && representable(*timing.likely)) {
-         *allocate_optional(details->likelyTime) = time_mark(*timing.likely);
+         *allocate_optional(details->likelyTime) = time_mark(*timing.likely).count();
 diff --git a/vanetza/facilities/spat_functions.hpp b/vanetza/facilities/spat_functions.hpp
-index 3e2ee9b..5991d08 100644
+index b672597..19e8862 100644
 --- a/vanetza/facilities/spat_functions.hpp
 +++ b/vanetza/facilities/spat_functions.hpp
-@@ -148,11 +148,34 @@ MovementEvent& add_event(MovementState& movement, long phase_state);
+@@ -154,11 +154,34 @@ MovementEvent& add_event(MovementState& movement, long phase_state);
   * \param event movement event (destination)
   * \param timing absolute timing
   * \param timestamp time of the intersection state, see set_timestamp()
@@ -109,7 +109,7 @@ index 3e2ee9b..5991d08 100644
  } // namespace vanetza
  
 diff --git a/vanetza/facilities/tests/fixed_time_plan.cpp b/vanetza/facilities/tests/fixed_time_plan.cpp
-index 2409ae8..3654e91 100644
+index 266b2a6..e6eac35 100644
 --- a/vanetza/facilities/tests/fixed_time_plan.cpp
 +++ b/vanetza/facilities/tests/fixed_time_plan.cpp
 @@ -531,3 +531,24 @@ TEST(FixedTimePlan, rejects_times_longer_than_a_day)
@@ -128,9 +128,9 @@ index 2409ae8..3654e91 100644
 +    controller.fill(spatem->spat, 7, 3, Clock::at("2026-10-05 06:30:00"));
 +    const IntersectionState_t* intersection = spatem->spat.intersections.list.array[0];
 +    const MovementEvent_t* g10 = intersection->states.list.array[9]->state_time_speed.list.array[0];
-+    EXPECT_EQ(cTimeMarkOutOfRange, g10->timing->minEndTime);
++    EXPECT_EQ(cTimeMarkOutOfRange.count(), g10->timing->minEndTime);
 +    ASSERT_NE(nullptr, g10->timing->maxEndTime);
-+    EXPECT_EQ(cTimeMarkOutOfRange, *g10->timing->maxEndTime);
++    EXPECT_EQ(cTimeMarkOutOfRange.count(), *g10->timing->maxEndTime);
 +
 +    // known ends stay equal (RS_ARSM_61)
 +    const MovementEvent_t* g1 = intersection->states.list.array[0]->state_time_speed.list.array[0];
@@ -138,10 +138,10 @@ index 2409ae8..3654e91 100644
 +    EXPECT_EQ(g1->timing->minEndTime, *g1->timing->maxEndTime);
 +}
 diff --git a/vanetza/facilities/tests/spat_functions.cpp b/vanetza/facilities/tests/spat_functions.cpp
-index c17fe1e..840ccf8 100644
+index 94042f8..7f77468 100644
 --- a/vanetza/facilities/tests/spat_functions.cpp
 +++ b/vanetza/facilities/tests/spat_functions.cpp
-@@ -184,8 +184,8 @@ TEST(SpatFunctions, timing_beyond_one_hour)
+@@ -221,8 +221,8 @@ TEST(SpatFunctions, timing_beyond_one_hour)
      MovementTiming timing;
      timing.start = Clock::at("2026-10-04 11:59:59.900");
      timing.min_end = Clock::at("2026-10-05 07:00:00.000");
@@ -152,7 +152,7 @@ index c17fe1e..840ccf8 100644
      timing.confidence = 15;
      timing.next = Clock::at("2026-10-04 13:00:00.000");
      set_timing(event, timing, now);
-@@ -199,13 +199,13 @@ TEST(SpatFunctions, timing_beyond_one_hour)
+@@ -236,13 +236,13 @@ TEST(SpatFunctions, timing_beyond_one_hour)
      EXPECT_EQ(nullptr, event.timing->nextTime);
  
      timing.start = Clock::at("2026-10-04 12:00:00.000");
@@ -169,7 +169,7 @@ index c17fe1e..840ccf8 100644
      ASSERT_NE(nullptr, event.timing->startTime);
      EXPECT_EQ(0, *event.timing->startTime);
      ASSERT_NE(nullptr, event.timing->maxEndTime);
-@@ -216,6 +216,107 @@ TEST(SpatFunctions, timing_beyond_one_hour)
+@@ -253,6 +253,107 @@ TEST(SpatFunctions, timing_beyond_one_hour)
      EXPECT_EQ(35999, *event.timing->nextTime);
  }
  
@@ -188,13 +188,13 @@ index c17fe1e..840ccf8 100644
 +    timing.min_end = now + std::chrono::seconds(5);
 +    set_timing(event, timing, now, options);
 +    ASSERT_NE(nullptr, event.timing->maxEndTime);
-+    EXPECT_EQ(cTimeMarkOutOfRange, *event.timing->maxEndTime);
++    EXPECT_EQ(cTimeMarkOutOfRange.count(), *event.timing->maxEndTime);
 +
 +    // latest end beyond the TimeMark window
 +    timing.max_end = now + std::chrono::hours(2);
 +    set_timing(event, timing, now, options);
 +    ASSERT_NE(nullptr, event.timing->maxEndTime);
-+    EXPECT_EQ(cTimeMarkOutOfRange, *event.timing->maxEndTime);
++    EXPECT_EQ(cTimeMarkOutOfRange.count(), *event.timing->maxEndTime);
 +
 +    // representable latest end is encoded as usual
 +    timing.max_end = now + std::chrono::seconds(10);
@@ -230,7 +230,7 @@ index c17fe1e..840ccf8 100644
 +    timing.max_end = Clock::at("2026-10-04 12:59:59.950");
 +    set_timing(event, timing, now, options);
 +    ASSERT_NE(nullptr, event.timing->maxEndTime);
-+    EXPECT_EQ(cTimeMarkOutOfRange, *event.timing->maxEndTime);
++    EXPECT_EQ(cTimeMarkOutOfRange.count(), *event.timing->maxEndTime);
 +
 +    set_timing(event, timing, now);
 +    EXPECT_EQ(nullptr, event.timing->maxEndTime);

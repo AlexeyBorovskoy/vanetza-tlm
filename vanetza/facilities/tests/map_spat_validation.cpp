@@ -1231,7 +1231,7 @@ TEST(MapSpatValidation, rs_arsm_56_unknown_min_end_time_is_profile_only_error)
     asn1::Spatem spatem;
     IntersectionState& state = build_intersection_state(spatem, intersection_id, intersection_revision, reference_time);
     MovementState& movement = add_timed_movement(state, 1);
-    movement.state_time_speed.list.array[0]->timing->minEndTime = cTimeMarkUnknown;
+    movement.state_time_speed.list.array[0]->timing->minEndTime = cTimeMarkUnknown.count();
 
     EXPECT_EQ(no_issues, findings(validate_spat(spatem->spat, ValidationProfile::Standard)));
     EXPECT_EQ(Findings { error_at("RS_ARSM_56", event_path(0, 0) + ".timing.minEndTime") },
@@ -1285,7 +1285,7 @@ TEST(MapSpatValidation, rs_arsm_60_unknown_max_end_time_is_profile_only_error)
     MovementState& movement = add_timed_movement(state, 1);
     TimeChangeDetails_t& timing = *movement.state_time_speed.list.array[0]->timing;
     ASSERT_NE(nullptr, timing.maxEndTime);
-    *timing.maxEndTime = cTimeMarkUnknown;
+    *timing.maxEndTime = cTimeMarkUnknown.count();
 
     EXPECT_EQ(no_issues, findings(validate_spat(spatem->spat, ValidationProfile::Standard)));
     EXPECT_EQ(Findings { error_at("RS_ARSM_60", event_path(0, 0) + ".timing.maxEndTime") },
@@ -1299,7 +1299,7 @@ TEST(MapSpatValidation, rs_arsm_66_unknown_likely_time_is_profile_only_error)
     MovementState& movement = add_timed_movement(state, 1);
     TimeChangeDetails_t& timing = *movement.state_time_speed.list.array[0]->timing;
     ASSERT_NE(nullptr, timing.likelyTime);
-    *timing.likelyTime = cTimeMarkUnknown;
+    *timing.likelyTime = cTimeMarkUnknown.count();
 
     EXPECT_EQ(no_issues, findings(validate_spat(spatem->spat, ValidationProfile::Standard)));
     EXPECT_EQ(Findings { error_at("RS_ARSM_66", event_path(0, 0) + ".timing.likelyTime") },
@@ -1331,7 +1331,7 @@ TEST(MapSpatValidation, rs_arsm_61_likely_time_differing_without_max_end_time_re
     IntersectionState& state = build_intersection_state(spatem, intersection_id, intersection_revision, reference_time);
     MovementState& movement = add_movement(state, 1);
     add_raw_event(movement, MovementPhaseState_permissive_Movement_Allowed, 100, boost::none, 110, 15);
-    add_raw_event(movement, MovementPhaseState_stop_And_Remain, cTimeMarkOutOfRange);
+    add_raw_event(movement, MovementPhaseState_stop_And_Remain, cTimeMarkOutOfRange.count());
 
     // Car2Car (not Combined): the events deliberately omit maxEndTime
     EXPECT_EQ(Findings { error_at("RS_ARSM_61", event_path(0, 0) + ".timing") },
@@ -1345,8 +1345,8 @@ TEST(MapSpatValidation, rs_arsm_61_max_end_time_out_of_range_is_not_reported)
     asn1::Spatem spatem;
     IntersectionState& state = build_intersection_state(spatem, intersection_id, intersection_revision, reference_time);
     MovementState& movement = add_movement(state, 1);
-    add_raw_event(movement, MovementPhaseState_permissive_Movement_Allowed, 100, cTimeMarkOutOfRange);
-    add_raw_event(movement, MovementPhaseState_stop_And_Remain, cTimeMarkOutOfRange);
+    add_raw_event(movement, MovementPhaseState_permissive_Movement_Allowed, 100, cTimeMarkOutOfRange.count());
+    add_raw_event(movement, MovementPhaseState_stop_And_Remain, cTimeMarkOutOfRange.count());
 
     // Car2Car (not Combined): the completing event deliberately omits maxEndTime, which would
     // otherwise also trigger the unrelated "C-Roads maxEndTime" rule
@@ -1359,7 +1359,7 @@ TEST(MapSpatValidation, rs_arsm_61_equal_times_is_not_reported)
     IntersectionState& state = build_intersection_state(spatem, intersection_id, intersection_revision, reference_time);
     MovementState& movement = add_movement(state, 1);
     add_raw_event(movement, MovementPhaseState_permissive_Movement_Allowed, 100, 100, 100, 15);
-    add_raw_event(movement, MovementPhaseState_stop_And_Remain, cTimeMarkOutOfRange);
+    add_raw_event(movement, MovementPhaseState_stop_And_Remain, cTimeMarkOutOfRange.count());
 
     EXPECT_EQ(no_issues, findings(validate_spat(spatem->spat, ValidationProfile::Car2Car)));
 }
@@ -1371,8 +1371,8 @@ TEST(MapSpatValidation, rs_arsm_61_unknown_min_end_time_with_likely_time_does_no
     asn1::Spatem spatem;
     IntersectionState& state = build_intersection_state(spatem, intersection_id, intersection_revision, reference_time);
     MovementState& movement = add_movement(state, 1);
-    add_raw_event(movement, MovementPhaseState_permissive_Movement_Allowed, cTimeMarkUnknown, boost::none, 50, 15);
-    add_raw_event(movement, MovementPhaseState_stop_And_Remain, cTimeMarkOutOfRange);
+    add_raw_event(movement, MovementPhaseState_permissive_Movement_Allowed, cTimeMarkUnknown.count(), boost::none, 50, 15);
+    add_raw_event(movement, MovementPhaseState_stop_And_Remain, cTimeMarkOutOfRange.count());
 
     EXPECT_EQ(Findings { error_at("RS_ARSM_56", event_path(0, 0) + ".timing.minEndTime") },
         findings(validate_spat(spatem->spat, ValidationProfile::Car2Car)));
@@ -1386,8 +1386,8 @@ TEST(MapSpatValidation, rs_arsm_65_likely_before_min_end_reports_error)
     state.status.buf[bit / 8] |= 0x80 >> (bit % 8);
     MovementState& movement = add_movement(state, 1);
     add_raw_event(movement, MovementPhaseState_permissive_Movement_Allowed, 200, 300, 100, 15); // likely < min
-    add_raw_event(movement, MovementPhaseState_stop_And_Remain, cTimeMarkOutOfRange, cTimeMarkOutOfRange,
-        cTimeMarkOutOfRange, 15);
+    add_raw_event(movement, MovementPhaseState_stop_And_Remain, cTimeMarkOutOfRange.count(), cTimeMarkOutOfRange.count(),
+        cTimeMarkOutOfRange.count(), 15);
 
     EXPECT_EQ(no_issues, findings(validate_spat(spatem->spat, ValidationProfile::Standard)));
     EXPECT_EQ(Findings { error_at("RS_ARSM_65", event_path(0, 0) + ".timing") },
@@ -1406,8 +1406,8 @@ TEST(MapSpatValidation, rs_arsm_65_hour_wrap_is_not_falsely_reported)
     state.status.buf[bit / 8] |= 0x80 >> (bit % 8);
     MovementState& movement = add_movement(state, 1);
     add_raw_event(movement, MovementPhaseState_permissive_Movement_Allowed, 35950, 50, 35950, 15);
-    add_raw_event(movement, MovementPhaseState_stop_And_Remain, cTimeMarkOutOfRange, cTimeMarkOutOfRange,
-        cTimeMarkOutOfRange, 15);
+    add_raw_event(movement, MovementPhaseState_stop_And_Remain, cTimeMarkOutOfRange.count(), cTimeMarkOutOfRange.count(),
+        cTimeMarkOutOfRange.count(), 15);
 
     EXPECT_EQ(no_issues, findings(validate_spat(spatem->spat, ValidationProfile::Combined)));
 }
@@ -1550,7 +1550,7 @@ TEST(MapSpatValidation, rs_arsm_79_single_event_at_time_mark_horizon_reports_err
     asn1::Spatem spatem;
     IntersectionState& state = build_intersection_state(spatem, intersection_id, intersection_revision, reference_time);
     MovementState& movement = add_movement(state, 1);
-    add_raw_event(movement, MovementPhaseState_stop_And_Remain, cTimeMarkOutOfRange); // 36000: beyond the horizon
+    add_raw_event(movement, MovementPhaseState_stop_And_Remain, cTimeMarkOutOfRange.count()); // 36000: beyond the horizon
 
     EXPECT_EQ(no_issues, findings(validate_spat(spatem->spat, ValidationProfile::Standard)));
     EXPECT_EQ(Findings { error_at("RS_ARSM_79", events_path(0)) },
@@ -1562,7 +1562,7 @@ TEST(MapSpatValidation, rs_arsm_79_next_phase_without_timing_after_horizon_is_no
     asn1::Spatem spatem;
     IntersectionState& state = build_intersection_state(spatem, intersection_id, intersection_revision, reference_time);
     MovementState& movement = add_movement(state, 1);
-    add_raw_event(movement, MovementPhaseState_stop_And_Remain, cTimeMarkOutOfRange); // beyond the horizon
+    add_raw_event(movement, MovementPhaseState_stop_And_Remain, cTimeMarkOutOfRange.count()); // beyond the horizon
     add_event(movement, MovementPhaseState_permissive_Movement_Allowed); // next phase, no timing
 
     EXPECT_EQ(no_issues, findings(validate_spat(spatem->spat, ValidationProfile::Car2Car)));
@@ -1574,7 +1574,7 @@ TEST(MapSpatValidation, rs_arsm_79_last_event_at_time_mark_horizon_reports_error
     IntersectionState& state = build_intersection_state(spatem, intersection_id, intersection_revision, reference_time);
     MovementState& movement = add_movement(state, 1);
     add_raw_event(movement, MovementPhaseState_permissive_Movement_Allowed, 100);
-    add_raw_event(movement, MovementPhaseState_permissive_clearance, cTimeMarkOutOfRange); // not a phase
+    add_raw_event(movement, MovementPhaseState_permissive_clearance, cTimeMarkOutOfRange.count()); // not a phase
 
     EXPECT_EQ(Findings { error_at("RS_ARSM_79", events_path(0)) },
         findings(validate_spat(spatem->spat, ValidationProfile::Car2Car)));
@@ -1983,7 +1983,7 @@ TEST(MapSpatValidation, profiles_report_only_their_own_identifiers)
             IntersectionState& state = build_intersection_state(spatem, intersection_id, intersection_revision,
                 reference_time);
             MovementState& movement = add_timed_movement(state, 1);
-            movement.state_time_speed.list.array[0]->timing->minEndTime = cTimeMarkUnknown; // RS_ARSM_56
+            movement.state_time_speed.list.array[0]->timing->minEndTime = cTimeMarkUnknown.count(); // RS_ARSM_56
             return validate_spat(spatem->spat, profile);
         },
         [](ValidationProfile profile) {
@@ -2002,7 +2002,7 @@ TEST(MapSpatValidation, profiles_report_only_their_own_identifiers)
             IntersectionState& state = build_intersection_state(spatem, intersection_id, intersection_revision,
                 reference_time);
             MovementState& movement = add_timed_movement(state, 1);
-            *movement.state_time_speed.list.array[0]->timing->maxEndTime = cTimeMarkUnknown; // RS_ARSM_60
+            *movement.state_time_speed.list.array[0]->timing->maxEndTime = cTimeMarkUnknown.count(); // RS_ARSM_60
             return validate_spat(spatem->spat, profile);
         },
         [](ValidationProfile profile) {
@@ -2010,7 +2010,7 @@ TEST(MapSpatValidation, profiles_report_only_their_own_identifiers)
             IntersectionState& state = build_intersection_state(spatem, intersection_id, intersection_revision,
                 reference_time);
             MovementState& movement = add_timed_movement(state, 1);
-            *movement.state_time_speed.list.array[0]->timing->likelyTime = cTimeMarkUnknown; // RS_ARSM_66
+            *movement.state_time_speed.list.array[0]->timing->likelyTime = cTimeMarkUnknown.count(); // RS_ARSM_66
             return validate_spat(spatem->spat, profile);
         },
         [](ValidationProfile profile) {
