@@ -45,7 +45,7 @@ void PriorityRequestTable::cancel(std::uint32_t requester, long request_id)
 long PriorityRequestTable::commit()
 {
     if (changed_) {
-        sequence_number_ = facilities::next_msg_count(sequence_number_);
+        sequence_number_ = facilities::msg_count(sequence_number_ + 1);
         changed_ = false;
     }
     return sequence_number_;

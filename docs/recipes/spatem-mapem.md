@@ -69,7 +69,7 @@ The builders follow the C2C-CC RS 2077 profile: a reference lane width per inter
 - A crosswalk modelled as one bidirectional lane has both approach identifiers and, to carry its pedestrian signal group, a connection to itself. This is a compatibility convention used in deployed MAPs; ISO TS 19091 neither requires nor forbids it. Split crosswalks with refuge islands are better modelled as separate lanes connecting to each other.
 
 - The builders leave the road regulator identifier (`IntersectionReferenceID.region`) empty. C2C-CC RS 2077 requires it together with the intersection identifier, so set the same value in MAPEM and SPATEM where the profile applies.
-- *MsgCount* (revision counters) is limited to 0..127. Use `next_msg_count()` for wrapping, an out-of-range value makes UPER encoding throw.
+- *MsgCount* (revision counters) is limited to 0..127. Use `msg_count()` for wrapping, an out-of-range value makes UPER encoding throw.
 - `validate()` checks value constraints but not the size constraints of `SEQUENCE OF` types. An empty movement or lane list passes validation but cannot be encoded.
 
 See also the *tlm* and *rlt* applications of [socktap](../tools/socktap.md).

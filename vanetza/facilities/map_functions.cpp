@@ -1,3 +1,4 @@
+#include <vanetza/asn1/asn1c_wrapper.hpp>
 #include <vanetza/asn1/its/ConnectsToList.h>
 #include <vanetza/asn1/its/GenericLane.h>
 #include <vanetza/asn1/its/IntersectionGeometry.h>
@@ -5,7 +6,6 @@
 #include <vanetza/asn1/its/MapData.h>
 #include <vanetza/asn1/its/NodeXY.h>
 #include <vanetza/facilities/map_functions.hpp>
-#include <vanetza/facilities/detail/asn1_list.tpp>
 #include <boost/units/cmath.hpp>
 #include <boost/units/systems/angle/degrees.hpp>
 #include <boost/units/systems/si/prefixes.hpp>
@@ -19,9 +19,6 @@ namespace facilities
 
 namespace
 {
-
-using detail::allocate_optional;
-using detail::append;
 
 static const auto tenth_microdegree = units::si::deci * units::degree * units::si::micro;
 static const auto centimeter = units::si::centi * units::si::meter;
@@ -69,8 +66,8 @@ IntersectionGeometry& add_intersection_geometry(MapData& map, long id, long revi
     geometry->revision = revision;
     geometry->refPoint.lat = round(latitude, tenth_microdegree);
     geometry->refPoint.Long = round(longitude, tenth_microdegree);
-    *allocate_optional(geometry->laneWidth) = round(lane_width, centimeter);
-    return append(*allocate_optional(map.intersections), std::move(geometry));
+    *asn1::allocate_optional(geometry->laneWidth) = round(lane_width, centimeter);
+    return asn1::append(*asn1::allocate_optional(map.intersections), std::move(geometry));
 }
 
 namespace
@@ -86,16 +83,16 @@ GenericLane& add_lane(IntersectionGeometry& intersection, long lane_id, TravelDi
     set_bits(attributes.directionalUse, 1, 2);
     if (direction != TravelDirection::Egress) {
         set_bit(attributes.directionalUse, LaneDirection_ingressPath);
-        *allocate_optional(lane->ingressApproach) = ingress_approach;
+        *asn1::allocate_optional(lane->ingressApproach) = ingress_approach;
     }
     if (direction != TravelDirection::Ingress) {
         set_bit(attributes.directionalUse, LaneDirection_egressPath);
-        *allocate_optional(lane->egressApproach) = egress_approach;
+        *asn1::allocate_optional(lane->egressApproach) = egress_approach;
     }
     set_bits(attributes.sharedWith, 2, 10);
 
     lane->nodeList.present = NodeListXY_PR_nodes;
-    return append(intersection.laneSet, std::move(lane));
+    return asn1::append(intersection.laneSet, std::move(lane));
 }
 
 } // namespace
@@ -161,7 +158,7 @@ void add_node(GenericLane& lane, units::Length east, units::Length north)
     } else {
         throw std::out_of_range("node offset exceeds Node-XY-32b");
     }
-    append(lane.nodeList.choice.nodes, std::move(node));
+    asn1::append(lane.nodeList.choice.nodes, std::move(node));
 }
 
 void connect(GenericLane& from, long lane_id, Maneuver maneuver, long signal_group, long connection_id)
@@ -169,7 +166,7 @@ void connect(GenericLane& from, long lane_id, Maneuver maneuver, long signal_gro
     auto connection = asn1::make_unique<Connection_t>(asn_DEF_Connection);
     connection->connectingLane.lane = lane_id;
     // exactly one direction bit per connection (C2C-CC RS 2077, RS_ARSM_22)
-    AllowedManeuvers_t* bits = allocate_optional(connection->connectingLane.maneuver);
+    AllowedManeuvers_t* bits = asn1::allocate_optional(connection->connectingLane.maneuver);
     set_bits(*bits, 2, 12);
     switch (maneuver) {
         case Maneuver::Straight:
@@ -185,9 +182,9 @@ void connect(GenericLane& from, long lane_id, Maneuver maneuver, long signal_gro
             set_bit(*bits, AllowedManeuvers_maneuverUTurnAllowed);
             break;
     }
-    *allocate_optional(connection->signalGroup) = signal_group;
-    *allocate_optional(connection->connectionID) = connection_id;
-    append(*allocate_optional(from.connectsTo), std::move(connection));
+    *asn1::allocate_optional(connection->signalGroup) = signal_group;
+    *asn1::allocate_optional(connection->connectionID) = connection_id;
+    asn1::append(*asn1::allocate_optional(from.connectsTo), std::move(connection));
 }
 
 } // namespace facilities

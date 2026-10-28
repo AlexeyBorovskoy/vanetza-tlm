@@ -131,7 +131,7 @@ void TlcRequestApplication::on_timer(Clock::time_point)
     request.arrival = now + seconds(20);
     request.duration = seconds(8);
     add_request(message->srm, request);
-    sequence_number_ = next_msg_count(sequence_number_);
+    sequence_number_ = msg_count(sequence_number_ + 1);
 
     std::string error;
     if (!message.validate(error)) {

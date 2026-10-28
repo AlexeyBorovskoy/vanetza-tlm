@@ -38,20 +38,14 @@ pr() {
     git -C "$repo" commit --quiet -m "$message"
 }
 
-pr "facilities: add SPaT, MAP and priority message helpers
+pr "facilities: add MAP and priority message helpers
 
-Builders for IntersectionState, MovementState, IntersectionGeometry,
-lanes, nodes, connections, SignalRequest and SignalStatus, plus
-MsgCount (next_msg_count) and MovementTiming with set_timing()
-(TimeChangeDetails with the TimeMark window of C2C-CC RS 2077
-RS_ARSM_54), on top of the SPaT time conversions of Vanetza
-(ETSI TS 103 301, ISO TS 19091)." \
+Builders for IntersectionGeometry, lanes, nodes, connections,
+SignalRequest and SignalStatus on top of the asn1::append helpers
+of Vanetza." \
     0002-facilities-add-spat-map-priority-functions.patch -- \
-    vanetza/facilities/detail/asn1_list.tpp \
-    vanetza/facilities/spat_functions.hpp vanetza/facilities/spat_functions.cpp \
     vanetza/facilities/map_functions.hpp vanetza/facilities/map_functions.cpp \
     vanetza/facilities/priority_functions.hpp vanetza/facilities/priority_functions.cpp \
-    vanetza/facilities/tests/spat_functions.cpp \
     vanetza/facilities/tests/map_functions.cpp \
     vanetza/facilities/tests/priority_functions.cpp \
     docs/recipes/spatem-mapem.md

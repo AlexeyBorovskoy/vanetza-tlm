@@ -8,9 +8,10 @@ Vanetza already ships `vanetza::asn1::Spatem`, `Mapem`, `Srem` and `Ssem`, the B
 the ITS-AIDs and, since riebl/vanetza#328 from this project, SPATEM/MAPEM round-trip and
 constraint tests, but no facility helpers or example applications. This project adds:
 
-- **facilities:** SPATEM/MAPEM/SREM/SSEM builders following the C2C-CC RS 2077 profile on top
+- **facilities:** MAPEM/SREM/SSEM builders following the C2C-CC RS 2077 profile on top
   of the SPaT time conversions (MinuteOfTheYear, DSecond, TimeMark with hour rollover and
-  "unknown") that are part of Vanetza since riebl/vanetza#330 (merged 2026-10-19),
+  "unknown", riebl/vanetza#330) and the SPATEM builders (riebl/vanetza#332), both part of
+  Vanetza since 2026-10-27,
   a fixed-time signal plan model (stages, intergreen times, coordinated plans, weekly schedule)
   and the derivation of protected or permissive movement states from conflicting paths,
 - **socktap:** `tlm`, `rlt`, `tlc-request` and `tlc-status` applications around an example
@@ -38,7 +39,7 @@ overlay.
 ## Status
 
 The SPATEM/MAPEM tests are part of Vanetza (riebl/vanetza#328), and so are the SPaT time
-conversions (riebl/vanetza#330). The rest of the series is not part of Vanetza yet. Further work
+conversions (riebl/vanetza#330) and the SPATEM builders (riebl/vanetza#332). The rest of the series is not part of Vanetza yet. Further work
 beyond it is in draft pull requests: semantic validation of MAPEM and SPATEM (#1) and reference
 vectors of the example intersection, decoded independently by pycrate (#2).
 

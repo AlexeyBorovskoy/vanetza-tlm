@@ -1,3 +1,4 @@
+#include <vanetza/asn1/asn1c_wrapper.hpp>
 #include <vanetza/asn1/its/IntersectionAccessPoint.h>
 #include <vanetza/asn1/its/RequestorType.h>
 #include <vanetza/asn1/its/VehicleID.h>
@@ -10,7 +11,6 @@
 #include <vanetza/asn1/its/SignalStatusPackage.h>
 #include <vanetza/facilities/priority_functions.hpp>
 #include <vanetza/facilities/spat_functions.hpp>
-#include <vanetza/facilities/detail/asn1_list.tpp>
 #include <chrono>
 #include <stdexcept>
 
@@ -21,9 +21,6 @@ namespace facilities
 
 namespace
 {
-
-using detail::allocate_optional;
-using detail::append;
 
 void set_lane(IntersectionAccessPoint_t& point, long lane)
 {
@@ -56,16 +53,16 @@ void set_requestor(SignalRequestMessage& message, std::uint32_t station_id, long
     set_station(message.requestor.id, station_id);
     ASN_STRUCT_FREE(asn_DEF_RequestorType, message.requestor.type);
     message.requestor.type = nullptr;
-    RequestorType_t* type = allocate_optional(message.requestor.type);
+    RequestorType_t* type = asn1::allocate_optional(message.requestor.type);
     type->role = role;
     if (vehicle_type) {
-        *allocate_optional(type->hpmsType) = *vehicle_type;
+        *asn1::allocate_optional(type->hpmsType) = *vehicle_type;
     }
 }
 
 void set_timestamp(SignalRequestMessage& message, const Clock::time_point& now)
 {
-    *allocate_optional(message.timeStamp) = static_cast<long>(minute_of_the_year(now).count());
+    *asn1::allocate_optional(message.timeStamp) = static_cast<long>(minute_of_the_year(now).count());
     message.second = static_cast<long>(dsecond(now).count());
 }
 
@@ -78,21 +75,21 @@ void add_request(SignalRequestMessage& message, const PriorityRequest& request)
     details.requestType = request.request_type;
     set_lane(details.inBoundLane, request.inbound_lane);
     if (request.outbound_lane) {
-        set_lane(*allocate_optional(details.outBoundLane), *request.outbound_lane);
+        set_lane(*asn1::allocate_optional(details.outBoundLane), *request.outbound_lane);
     }
     if (request.arrival) {
-        *allocate_optional(package->minute) = static_cast<long>(minute_of_the_year(*request.arrival).count());
-        *allocate_optional(package->second) = static_cast<long>(dsecond(*request.arrival).count());
+        *asn1::allocate_optional(package->minute) = static_cast<long>(minute_of_the_year(*request.arrival).count());
+        *asn1::allocate_optional(package->second) = static_cast<long>(dsecond(*request.arrival).count());
     }
     if (request.duration) {
-        *allocate_optional(package->duration) = to_dsecond(*request.duration);
+        *asn1::allocate_optional(package->duration) = to_dsecond(*request.duration);
     }
-    append(*allocate_optional(message.requests), std::move(package));
+    asn1::append(*asn1::allocate_optional(message.requests), std::move(package));
 }
 
 void set_timestamp(SignalStatusMessage& message, const Clock::time_point& now)
 {
-    *allocate_optional(message.timeStamp) = static_cast<long>(minute_of_the_year(now).count());
+    *asn1::allocate_optional(message.timeStamp) = static_cast<long>(minute_of_the_year(now).count());
     message.second = static_cast<long>(dsecond(now).count());
 }
 
@@ -101,23 +98,23 @@ SignalStatus& add_status(SignalStatusMessage& message, long intersection_id, lon
     auto status = asn1::make_unique<SignalStatus_t>(asn_DEF_SignalStatus);
     status->id.id = intersection_id;
     status->sequenceNumber = sequence_number;
-    return append(message.status, std::move(status));
+    return asn1::append(message.status, std::move(status));
 }
 
 void add_response(SignalStatus& status, const PriorityResponse& response)
 {
     auto package = asn1::make_unique<SignalStatusPackage_t>(asn_DEF_SignalStatusPackage);
-    SignalRequesterInfo_t* requester = allocate_optional(package->requester);
+    SignalRequesterInfo_t* requester = asn1::allocate_optional(package->requester);
     set_station(requester->id, response.requester);
     requester->request = response.request_id;
     requester->sequenceNumber = response.request_sequence;
-    *allocate_optional(requester->role) = response.role;
+    *asn1::allocate_optional(requester->role) = response.role;
     set_lane(package->inboundOn, response.inbound_lane);
     if (response.outbound_lane) {
-        set_lane(*allocate_optional(package->outboundOn), *response.outbound_lane);
+        set_lane(*asn1::allocate_optional(package->outboundOn), *response.outbound_lane);
     }
     package->status = response.status;
-    append(status.sigStatus, std::move(package));
+    asn1::append(status.sigStatus, std::move(package));
 }
 
 } // namespace facilities
