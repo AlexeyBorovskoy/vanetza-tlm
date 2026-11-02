@@ -21,6 +21,15 @@ git -C "$repo" checkout --quiet -b tlm "$base"
 git -C "$repo" config user.name "${PR_AUTHOR_NAME:-$(git -C "$root" config user.name)}"
 git -C "$repo" config user.email "${PR_AUTHOR_EMAIL:-$(git -C "$root" config user.email)}"
 
+# patch 0002 has two variants: the pinned base needs the MAP and priority
+# registration together, current upstream already registers the MAP helpers.
+# Select by the base tree; fail instead of guessing on inconsistent registration.
+if ! functions_patch=$(sh "$root/scripts/select-functions-patch.sh" "$repo"); then
+    echo "cannot select the facilities functions patch" >&2
+    exit 1
+fi
+functions_patch=$(basename "$functions_patch")
+
 # pr <message> <patch>... -- <file>...
 pr() {
     message=$1
@@ -43,7 +52,7 @@ pr "facilities: add MAP and priority message helpers
 Builders for IntersectionGeometry, lanes, nodes, connections,
 SignalRequest and SignalStatus on top of the asn1::append helpers
 of Vanetza." \
-    0002-facilities-add-spat-map-priority-functions.patch -- \
+    "$functions_patch" -- \
     vanetza/facilities/map_functions.hpp vanetza/facilities/map_functions.cpp \
     vanetza/facilities/priority_functions.hpp vanetza/facilities/priority_functions.cpp \
     vanetza/facilities/tests/map_functions.cpp \

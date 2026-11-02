@@ -23,10 +23,28 @@ for dir in vanetza tools docs; do
     fi
 done
 
+# patch 0002 has two variants: the pinned base needs the MAP and priority
+# registration together, current upstream already registers the MAP helpers.
+# The helper inspects both facilities CMake lists and fails instead of guessing
+# when the registration is inconsistent.
+if ! functions_patch=$(sh "$root/scripts/select-functions-patch.sh" "$dst"); then
+    echo "cannot select the facilities functions patch" >&2
+    exit 1
+fi
+echo "applying $(basename "$functions_patch")"
+patch -d "$dst" -p1 --forward --quiet < "$functions_patch"
+
 # patches: edits of existing Vanetza files (CMakeLists, socktap main.cpp, ...)
 for patch in "$root"/patches/*.patch; do
     [ -e "$patch" ] || continue
-    echo "applying $(basename "$patch")"
+    name=$(basename "$patch")
+    case $name in
+        0002-facilities-add-spat-map-priority-functions.patch|0002-facilities-priority-only.patch)
+            # variant selected above for this tree
+            continue
+            ;;
+    esac
+    echo "applying $name"
     patch -d "$dst" -p1 --forward --quiet < "$patch"
 done
 

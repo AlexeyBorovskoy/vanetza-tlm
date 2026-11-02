@@ -209,6 +209,8 @@ jobs:
       - uses: actions/checkout@v6
         with:
           submodules: true
+      - name: test facilities patch selection
+        run: python3 -m unittest discover -s tests -p 'test_functions_patch.py'
       - name: no carriage returns in sources
         run: |
           if grep -rlP --exclude='*.dat' '\r' vanetza tools docs scripts patches; then echo "CR characters found"; exit 1; fi

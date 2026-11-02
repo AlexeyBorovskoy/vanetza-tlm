@@ -1,0 +1,20 @@
+diff --git a/vanetza/facilities/CMakeLists.txt b/vanetza/facilities/CMakeLists.txt
+--- a/vanetza/facilities/CMakeLists.txt
++++ b/vanetza/facilities/CMakeLists.txt
+@@ -3,6 +3,7 @@
+     map_functions.cpp
+     path_history.cpp
+     path_point.cpp
++    priority_functions.cpp
+     spat_functions.cpp
+ )
+ 
+diff --git a/vanetza/facilities/tests/CMakeLists.txt b/vanetza/facilities/tests/CMakeLists.txt
+--- a/vanetza/facilities/tests/CMakeLists.txt
++++ b/vanetza/facilities/tests/CMakeLists.txt
+@@ -5,4 +5,5 @@
+ add_gtest(MapFunctions map_functions.cpp)
+ add_gtest(PathHistory path_history.cpp)
+ add_gtest(PathPoint path_point.cpp)
++add_gtest(PriorityFunctions priority_functions.cpp)
+ add_gtest(SpatFunctions spat_functions.cpp)
