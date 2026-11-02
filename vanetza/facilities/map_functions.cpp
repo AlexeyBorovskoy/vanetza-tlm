@@ -66,8 +66,10 @@ IntersectionGeometry& add_intersection_geometry(MapData& map, long id, long revi
     geometry->revision = revision;
     geometry->refPoint.lat = round(latitude, tenth_microdegree);
     geometry->refPoint.Long = round(longitude, tenth_microdegree);
-    *asn1::allocate_optional(geometry->laneWidth) = round(lane_width, centimeter);
-    return asn1::append(*asn1::allocate_optional(map.intersections), std::move(geometry));
+    asn1::allocate_optional(geometry->laneWidth);
+    *geometry->laneWidth = round(lane_width, centimeter);
+    asn1::allocate_optional(map.intersections);
+    return asn1::append(*map.intersections, std::move(geometry));
 }
 
 namespace
@@ -83,11 +85,13 @@ GenericLane& add_lane(IntersectionGeometry& intersection, long lane_id, TravelDi
     set_bits(attributes.directionalUse, 1, 2);
     if (direction != TravelDirection::Egress) {
         set_bit(attributes.directionalUse, LaneDirection_ingressPath);
-        *asn1::allocate_optional(lane->ingressApproach) = ingress_approach;
+        asn1::allocate_optional(lane->ingressApproach);
+        *lane->ingressApproach = ingress_approach;
     }
     if (direction != TravelDirection::Ingress) {
         set_bit(attributes.directionalUse, LaneDirection_egressPath);
-        *asn1::allocate_optional(lane->egressApproach) = egress_approach;
+        asn1::allocate_optional(lane->egressApproach);
+        *lane->egressApproach = egress_approach;
     }
     set_bits(attributes.sharedWith, 2, 10);
 
@@ -166,7 +170,8 @@ void connect(GenericLane& from, long lane_id, Maneuver maneuver, long signal_gro
     auto connection = asn1::make_unique<Connection_t>(asn_DEF_Connection);
     connection->connectingLane.lane = lane_id;
     // exactly one direction bit per connection (C2C-CC RS 2077, RS_ARSM_22)
-    AllowedManeuvers_t* bits = asn1::allocate_optional(connection->connectingLane.maneuver);
+    asn1::allocate_optional(connection->connectingLane.maneuver);
+    AllowedManeuvers_t* bits = connection->connectingLane.maneuver;
     set_bits(*bits, 2, 12);
     switch (maneuver) {
         case Maneuver::Straight:
@@ -182,9 +187,12 @@ void connect(GenericLane& from, long lane_id, Maneuver maneuver, long signal_gro
             set_bit(*bits, AllowedManeuvers_maneuverUTurnAllowed);
             break;
     }
-    *asn1::allocate_optional(connection->signalGroup) = signal_group;
-    *asn1::allocate_optional(connection->connectionID) = connection_id;
-    asn1::append(*asn1::allocate_optional(from.connectsTo), std::move(connection));
+    asn1::allocate_optional(connection->signalGroup);
+    *connection->signalGroup = signal_group;
+    asn1::allocate_optional(connection->connectionID);
+    *connection->connectionID = connection_id;
+    asn1::allocate_optional(from.connectsTo);
+    asn1::append(*from.connectsTo, std::move(connection));
 }
 
 } // namespace facilities
