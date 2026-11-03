@@ -1,0 +1,29 @@
+diff --git a/vanetza/facilities/CMakeLists.txt b/vanetza/facilities/CMakeLists.txt
+index ae1113c..29e75db 100644
+--- a/vanetza/facilities/CMakeLists.txt
++++ b/vanetza/facilities/CMakeLists.txt
+@@ -2,10 +2,12 @@ set(CXX_SOURCES
+     cam_functions.cpp
+     fixed_time_plan.cpp
+     map_functions.cpp
++    map_spat_validation.cpp
+     path_history.cpp
+     path_point.cpp
+     priority_functions.cpp
+     spat_functions.cpp
++    validation.cpp
+ )
+ 
+ add_vanetza_component(facilities ${CXX_SOURCES})
+diff --git a/vanetza/facilities/tests/CMakeLists.txt b/vanetza/facilities/tests/CMakeLists.txt
+index 72ef165..1351798 100644
+--- a/vanetza/facilities/tests/CMakeLists.txt
++++ b/vanetza/facilities/tests/CMakeLists.txt
+@@ -4,6 +4,7 @@ configure_gtest_directory(LINK_LIBRARIES facilities)
+ add_gtest(CamFunctions cam_functions.cpp LINK_LIBRARIES asn1_its_r2)
+ add_gtest(FixedTimePlan fixed_time_plan.cpp)
+ add_gtest(MapFunctions map_functions.cpp)
++add_gtest(MapSpatValidation map_spat_validation.cpp)
+ add_gtest(PathHistory path_history.cpp)
+ add_gtest(PathPoint path_point.cpp)
+ add_gtest(PriorityFunctions priority_functions.cpp)
