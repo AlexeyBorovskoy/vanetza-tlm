@@ -4,6 +4,11 @@
 #   4. socktap applications and docs.
 # The SPATEM/MAPEM asn1 tests are part of Vanetza since riebl/vanetza#328.
 # The SPaT time conversions are part of Vanetza since riebl/vanetza#330.
+# The facilities helpers exist in three registration states (see
+# select-functions-patch.sh): none registered, MAP registered already, or both
+# registered.  The first stage is then empty only when the base already has the
+# helpers and the recipe; such a stage is skipped explicitly, so the series has
+# fewer than four commits.  Every other difference still fails.
 # Result: work/pr/*.patch (git format-patch against the pinned Vanetza commit) and work/pr-repo.
 # The script fails if the series does not reproduce the overlay tree exactly.
 set -eu
@@ -21,21 +26,39 @@ git -C "$repo" checkout --quiet -b tlm "$base"
 git -C "$repo" config user.name "${PR_AUTHOR_NAME:-$(git -C "$root" config user.name)}"
 git -C "$repo" config user.email "${PR_AUTHOR_EMAIL:-$(git -C "$root" config user.email)}"
 
-# patch 0002 has two variants: the pinned base needs the MAP and priority
-# registration together, current upstream already registers the MAP helpers.
+# patch 0002 has up to three states: the pinned base needs the MAP and priority
+# registration together, current upstream registers MAP already, and a tree that
+# registers both needs no registration patch at all.  The selector prints nothing
+# in the last state; the copy list from the file helper is empty then as well.
 # Select by the base tree; fail instead of guessing on inconsistent registration.
-if ! functions_patch=$(sh "$root/scripts/select-functions-patch.sh" "$repo"); then
+functions_patch=$(sh "$root/scripts/select-functions-patch.sh" "$repo") || {
     echo "cannot select the facilities functions patch" >&2
     exit 1
+}
+if [ -n "$functions_patch" ]; then
+    functions_patch=$(basename "$functions_patch")
 fi
-functions_patch=$(basename "$functions_patch")
+# subset of the overlay helpers the base still lacks, may be empty
+functions_files=$(sh "$root/scripts/functions-overlay-files.sh" --copy "$repo") || {
+    echo "cannot select the facilities functions files" >&2
+    exit 1
+}
 
-# pr <message> <patch>... -- <file>...
+# pr [--allow-empty] <message> <patch>... -- <file>...
+# An empty patch or file is skipped; the helper lists are expanded unquoted, so an
+# empty list adds no argument.
 pr() {
+    allow_empty=0
+    if [ "$1" = "--allow-empty" ]; then
+        allow_empty=1
+        shift
+    fi
     message=$1
     shift
     while [ "$1" != "--" ]; do
-        git -C "$repo" apply --whitespace=error-all "$root/patches/$1"
+        if [ -n "$1" ]; then
+            git -C "$repo" apply --whitespace=error-all "$root/patches/$1"
+        fi
         shift
     done
     shift
@@ -44,19 +67,25 @@ pr() {
         cp "$root/$file" "$repo/$file"
     done
     git -C "$repo" add -A
+    if git -C "$repo" diff --cached --quiet; then
+        if [ "$allow_empty" -eq 1 ]; then
+            echo "note: export stage changes nothing, skipped: $(printf '%s\n' "$message" | head -n 1)" >&2
+            return 0
+        fi
+        echo "export stage changes nothing: $(printf '%s\n' "$message" | head -n 1)" >&2
+        exit 1
+    fi
     git -C "$repo" commit --quiet -m "$message"
 }
 
-pr "facilities: add MAP and priority message helpers
+# the first stage may legitimately be empty when the base has both helpers and the recipe
+pr --allow-empty "facilities: add MAP and priority message helpers
 
 Builders for IntersectionGeometry, lanes, nodes, connections,
 SignalRequest and SignalStatus on top of the asn1::append helpers
 of Vanetza." \
     "$functions_patch" -- \
-    vanetza/facilities/map_functions.hpp vanetza/facilities/map_functions.cpp \
-    vanetza/facilities/priority_functions.hpp vanetza/facilities/priority_functions.cpp \
-    vanetza/facilities/tests/map_functions.cpp \
-    vanetza/facilities/tests/priority_functions.cpp \
+    $functions_files \
     docs/recipes/spatem-mapem.md
 
 pr "tools: fuzz SPATEM, MAPEM, SREM and SSEM decoding

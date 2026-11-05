@@ -4,9 +4,11 @@ Signalised intersection services for [Vanetza](https://github.com/riebl/vanetza)
 SPATEM and MAPEM (ETSI Traffic Light Maneuver and Road and Lane Topology services) and
 SREM/SSEM (Traffic Light Control service) on top of the existing ETSI TS 103 301 v2.1.1 codecs.
 
-Vanetza already ships `vanetza::asn1::Spatem`, `Mapem`, `Srem` and `Ssem`, the BTP ports,
-the ITS-AIDs and, since riebl/vanetza#328 from this project, SPATEM/MAPEM round-trip and
-constraint tests, but no facility helpers or example applications. This project adds:
+Vanetza ships `vanetza::asn1::Spatem`, `Mapem`, `Srem` and `Ssem`, the BTP ports
+and the ITS-AIDs. Current upstream also includes the SPAT/MAP and priority builders,
+with populated-message codec tests. The pinned base predates some of these additions:
+this overlay supplies missing helpers and preserves upstream helpers when they are
+already registered. The remaining extensions include:
 
 - **facilities:** MAPEM/SREM/SSEM builders following the C2C-CC RS 2077 profile on top
   of the SPaT time conversions (MinuteOfTheYear, DSecond, TimeMark with hour rollover and
@@ -38,8 +40,10 @@ overlay.
 
 ## Status
 
-The SPATEM/MAPEM tests are part of Vanetza (riebl/vanetza#328), and so are the SPaT time
-conversions (riebl/vanetza#330) and the SPATEM builders (riebl/vanetza#332). The rest of the series is not part of Vanetza yet. Further work
+The SPATEM/MAPEM tests are part of Vanetza (riebl/vanetza#328), as are the SPaT time
+conversions (#330), SPATEM builders (#332 and #334), MAPEM builders (#333), populated
+SREM/SSEM codec tests (#335) and SREM/SSEM builders (#336). The fixed-time plan,
+fuzzing infrastructure and socktap applications remain separate extensions. Further work
 beyond it is in draft pull requests: semantic validation of MAPEM and SPATEM (#1) and reference
 vectors of the example intersection, decoded independently by pycrate (#2).
 
